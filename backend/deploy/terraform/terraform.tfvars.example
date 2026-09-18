@@ -1,0 +1,13 @@
+project_id  = "your-gcp-project-id"
+region      = "europe-central2"
+github_repo = "your-github-org/varianty"
+
+# Everything below has a sensible default (see variables.tf) — override
+# only if you need something different.
+# service_name            = "varianty-backend"
+# artifact_repository     = "varianty"
+# cloudsql_instance_name  = "varianty-db"
+# cloudsql_tier           = "db-f1-micro"
+# db_name                 = "varianty"
+# db_user                 = "varianty"
+# allow_unauthenticated   = true

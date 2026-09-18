@@ -1,0 +1,31 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: varianty-backend
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/varianty}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:admin}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+varianty:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-change-me-please-32bytes-min}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  game:
+    rounds-per-game: ${ROUNDS_PER_GAME:6}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.tustanovskyy.varianty: DEBUG

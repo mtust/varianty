@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: varianty
+      POSTGRES_USER: varianty
+      POSTGRES_PASSWORD: varianty
+    ports:
+      - "5432:5432"
+    volumes:
+      - varianty-db-data:/var/lib/postgresql/data
+
+volumes:
+  varianty-db-data:
