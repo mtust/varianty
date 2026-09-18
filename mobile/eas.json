@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:8080",
+        "EXPO_PUBLIC_WS_URL": "ws://localhost:8080/ws"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://REPLACE_WITH_CLOUD_RUN_URL",
+        "EXPO_PUBLIC_WS_URL": "wss://REPLACE_WITH_CLOUD_RUN_URL/ws"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://REPLACE_WITH_CLOUD_RUN_URL",
+        "EXPO_PUBLIC_WS_URL": "wss://REPLACE_WITH_CLOUD_RUN_URL/ws"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
