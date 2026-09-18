@@ -20,6 +20,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "49453eaf-945e-47c3-ac92-373d52b60f63"
+      }
+    },
+    "owner": "myro"
   }
 }
