@@ -17,6 +17,8 @@ interface RoomHandlers {
   onError: (error: ServerError) => void;
 }
 
+const CONNECT_FAILED_MESSAGE = 'Не вдалося підключитися до кімнати';
+
 class GameSocketService {
   private client: Client | null = null;
   private subscriptions: StompSubscription[] = [];
@@ -29,12 +31,15 @@ class GameSocketService {
         brokerURL: WS_URL,
         connectHeaders: { Authorization: `Bearer ${token}` },
         reconnectDelay: 3000,
+        connectionTimeout: 10000,
         // React Native's WebSocket doesn't handle text frames the way stompjs expects by
         // default (incoming frames are silently dropped) — these two flags are the
         // documented workaround for RN.
         forceBinaryWSFrames: true,
         appendMissingNULLonIncoming: true,
-        debug: __DEV__ ? (str) => console.log('[STOMP]', str) : undefined,
+        // Must stay a function: stompjs calls it unconditionally, so `undefined` throws
+        // inside activate() and the socket is never opened.
+        debug: __DEV__ ? (str) => console.log('[STOMP]', str) : () => {},
         onConnect: () => {
           console.log('[STOMP] connected, session established');
           if (this.joinArgs) {
@@ -56,11 +61,16 @@ class GameSocketService {
           console.error('[STOMP] websocket error', event);
           if (!settled) {
             settled = true;
-            reject(event instanceof Error ? event : new Error('WebSocket error'));
+            reject(event instanceof Error ? event : new Error(CONNECT_FAILED_MESSAGE));
           }
         },
         onWebSocketClose: (event) => {
           console.error('[STOMP] websocket closed', event.code, event.reason);
+          // this.client is cleared by disconnect(), so leaving the lobby isn't reported as a failure.
+          if (!settled && this.client === client) {
+            settled = true;
+            reject(new Error(CONNECT_FAILED_MESSAGE));
+          }
         },
       });
       this.client = client;
