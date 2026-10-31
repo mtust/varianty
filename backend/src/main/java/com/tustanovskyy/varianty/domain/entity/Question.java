@@ -30,6 +30,9 @@ public class Question {
 
 	private String category;
 
+	@Column(nullable = false)
+	private String language;
+
 	@PrePersist
 	void prePersist() {
 		if (id == null) {

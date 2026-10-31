@@ -14,6 +14,7 @@ public class GameRoom {
 	public final boolean hostRegistered;
 	public final boolean hostless;
 	public final String category;
+	public final String language;
 	public final Instant createdAt = Instant.now();
 
 	public final LinkedHashMap<String, PlayerState> players = new LinkedHashMap<>();
@@ -35,7 +36,8 @@ public class GameRoom {
 			boolean hostRegistered,
 			int totalRounds,
 			boolean hostless,
-			String category) {
+			String category,
+			String language) {
 		this.code = code;
 		this.hostId = hostId;
 		this.hostDisplayName = hostDisplayName;
@@ -43,5 +45,6 @@ public class GameRoom {
 		this.totalRounds = totalRounds;
 		this.hostless = hostless;
 		this.category = category;
+		this.language = language;
 	}
 }

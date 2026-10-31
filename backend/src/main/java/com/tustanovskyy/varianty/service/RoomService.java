@@ -68,12 +68,15 @@ public class RoomService {
 		scheduler.shutdownNow();
 	}
 
-	public String createRoom(PlayerPrincipal host, boolean hostless, String category) {
+	public String createRoom(PlayerPrincipal host, boolean hostless, String category, String language) {
 		if (!QuestionSeeder.CATEGORY_FACTS.equals(category) && !QuestionSeeder.CATEGORY_QUOTES.equals(category)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома категорія питань");
 		}
+		if (!QuestionSeeder.LANGUAGE_UK.equals(language) && !QuestionSeeder.LANGUAGE_EN.equals(language)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома мова");
+		}
 		String code = generateUniqueCode();
-		GameRoom room = new GameRoom(code, host.playerId(), host.displayName(), !host.guest(), roundsPerGame, hostless, category);
+		GameRoom room = new GameRoom(code, host.playerId(), host.displayName(), !host.guest(), roundsPerGame, hostless, category, language);
 		if (hostless) {
 			room.players.put(host.playerId(), new PlayerState(host.playerId(), host.displayName(), !host.guest()));
 		}
@@ -256,7 +259,7 @@ public class RoomService {
 	// --- internal state transitions (caller must hold the room monitor) ---
 
 	private void beginRound(GameRoom room) {
-		List<Question> pool = questionRepository.findByCategory(room.category).stream()
+		List<Question> pool = questionRepository.findByCategoryAndLanguage(room.category, room.language).stream()
 				.filter(q -> !room.usedQuestionIds.contains(q.getId()))
 				.toList();
 		if (pool.isEmpty()) {

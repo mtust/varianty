@@ -6,5 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface QuestionRepository extends JpaRepository<Question, String> {
 
-	List<Question> findByCategory(String category);
+	List<Question> findByCategoryAndLanguage(String category, String language);
+
+	long countByLanguage(String language);
 }
