@@ -3,12 +3,14 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 
+import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { roomService } from '@/services/room.service';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JoinRoom'>;
 
 export function JoinRoomScreen({ navigation }: Props) {
+  const t = useT();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +18,7 @@ export function JoinRoomScreen({ navigation }: Props) {
   const handleJoin = async () => {
     const normalized = code.trim().toUpperCase();
     if (!normalized) {
-      setError('Введіть код кімнати');
+      setError(t('join.codeRequired'));
       return;
     }
     setLoading(true);
@@ -24,12 +26,12 @@ export function JoinRoomScreen({ navigation }: Props) {
     try {
       const exists = await roomService.roomExists(normalized);
       if (!exists) {
-        setError('Кімнату не знайдено');
+        setError(t('join.notFound'));
         return;
       }
       navigation.navigate('Lobby', { code: normalized, isHost: false });
     } catch {
-      setError('Не вдалося перевірити код');
+      setError(t('join.checkFailed'));
     } finally {
       setLoading(false);
     }
@@ -38,11 +40,11 @@ export function JoinRoomScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text variant="bodyLarge" style={styles.hint}>
-        Введіть код, який показав ведучий
+        {t('join.hint')}
       </Text>
       <TextInput
         mode="outlined"
-        label="Код кімнати"
+        label={t('join.code')}
         value={code}
         onChangeText={setCode}
         autoCapitalize="characters"
@@ -52,7 +54,7 @@ export function JoinRoomScreen({ navigation }: Props) {
         {error}
       </HelperText>
       <Button mode="contained" loading={loading} disabled={loading} onPress={handleJoin}>
-        Приєднатися
+        {t('join.action')}
       </Button>
     </View>
   );

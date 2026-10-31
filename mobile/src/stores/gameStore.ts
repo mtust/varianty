@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { localizeServerError } from '@/i18n';
 import { gameSocket } from '@/services/socket.service';
 import { HostQuestion, RoomSnapshot, RoundResult, VotingStarted } from '@/types/game';
 
@@ -69,7 +70,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         // way to actually submit a valid choice.
         const status = get().snapshot?.status;
         set({
-          error: error.message,
+          error: localizeServerError(error.message),
           ...(status === 'VOTING' ? { myVoted: false, myVoteOptionId: null } : {}),
           ...(status === 'ANSWERING' ? { mySubmittedAnswer: false } : {}),
         });

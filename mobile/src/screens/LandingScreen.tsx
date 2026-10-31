@@ -2,26 +2,31 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Image, StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 
+import { LanguageSwitch } from '@/components/LanguageSwitch';
+import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Landing'>;
 
 export function LandingScreen({ navigation }: Props) {
+  const t = useT();
+
   return (
     <View style={styles.container}>
-      <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel="Логотип Варіанти" />
+      <LanguageSwitch />
+      <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel={t('app.logoLabel')} />
       <Text variant="displaySmall" style={styles.title}>
-        Варіанти
+        {t('app.name')}
       </Text>
       <Text variant="bodyLarge" style={styles.subtitle}>
-        Гра, де найкраща брехня перемагає
+        {t('app.tagline')}
       </Text>
 
       <Button mode="contained" style={styles.button} onPress={() => navigation.navigate('GuestName')}>
-        Грати як гість
+        {t('landing.guest')}
       </Button>
       <Button mode="outlined" style={styles.button} onPress={() => navigation.navigate('EmailAuth')}>
-        Увійти / Зареєструватися
+        {t('landing.signIn')}
       </Button>
     </View>
   );

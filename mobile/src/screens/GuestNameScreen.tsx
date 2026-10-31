@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 
+import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 type Props = NativeStackScreenProps<RootStackParamList, 'GuestName'>;
 
 export function GuestNameScreen({}: Props) {
+  const t = useT();
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export function GuestNameScreen({}: Props) {
 
   const handleContinue = async () => {
     if (!displayName.trim()) {
-      setError("Введіть ім'я");
+      setError(t('guest.nameRequired'));
       return;
     }
     setLoading(true);
@@ -26,7 +28,7 @@ export function GuestNameScreen({}: Props) {
       const session = await authService.continueAsGuest(displayName.trim());
       await setSession(session);
     } catch {
-      setError('Не вдалося підключитись до сервера');
+      setError(t('guest.serverError'));
     } finally {
       setLoading(false);
     }
@@ -35,11 +37,11 @@ export function GuestNameScreen({}: Props) {
   return (
     <View style={styles.container}>
       <Text variant="bodyLarge" style={styles.hint}>
-        Це ім'я побачать інші гравці в кімнаті
+        {t('guest.hint')}
       </Text>
       <TextInput
         mode="outlined"
-        label="Ваше ім'я"
+        label={t('guest.name')}
         value={displayName}
         onChangeText={setDisplayName}
         maxLength={40}
@@ -48,7 +50,7 @@ export function GuestNameScreen({}: Props) {
         {error}
       </HelperText>
       <Button mode="contained" loading={loading} disabled={loading} onPress={handleContinue}>
-        Продовжити
+        {t('guest.continue')}
       </Button>
     </View>
   );

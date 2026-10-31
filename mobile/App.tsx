@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useLanguageStore } from '@/i18n';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { useAuthStore } from '@/stores/authStore';
 import { theme } from '@/theme/theme';
@@ -16,6 +17,7 @@ export default function App() {
     if (!started) {
       setStarted(true);
       hydrate();
+      useLanguageStore.getState().hydrate();
     }
   }, [started, hydrate]);
 

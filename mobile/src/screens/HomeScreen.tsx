@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, SegmentedButtons, Text } from 'react-native-paper';
 
+import { LanguageSwitch } from '@/components/LanguageSwitch';
+import { useLanguageStore, useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { QuestionCategory, roomService } from '@/services/room.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -11,6 +13,8 @@ import { useShallow } from 'zustand/react/shallow';
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export function HomeScreen({ navigation }: Props) {
+  const t = useT();
+  const language = useLanguageStore((state) => state.language);
   const { displayName, guest, signOut } = useAuthStore(
     useShallow((state) => ({
       displayName: state.displayName,
@@ -26,10 +30,10 @@ export function HomeScreen({ navigation }: Props) {
     setCreating(hostless ? 'hostless' : 'host');
     setError(null);
     try {
-      const { code } = await roomService.createRoom(hostless, category);
+      const { code } = await roomService.createRoom(hostless, category, language);
       navigation.navigate('Lobby', { code, isHost: true });
     } catch {
-      setError('Не вдалося створити кімнату');
+      setError(t('home.createFailed'));
     } finally {
       setCreating(null);
     }
@@ -37,18 +41,19 @@ export function HomeScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <LanguageSwitch />
       <Text variant="titleLarge" style={styles.greeting}>
-        Привіт, {displayName}!
+        {t('home.greeting', { name: displayName ?? '' })}
       </Text>
 
-      <Text style={styles.categoryLabel}>Категорія питань</Text>
+      <Text style={styles.categoryLabel}>{t('home.category')}</Text>
       <SegmentedButtons
         style={styles.button}
         value={category}
         onValueChange={(value) => setCategory(value as QuestionCategory)}
         buttons={[
-          { value: 'facts', label: 'Факти', icon: 'lightbulb-outline' },
-          { value: 'quotes', label: 'Цитати', icon: 'chat-outline' },
+          { value: 'facts', label: t('home.facts'), icon: 'lightbulb-outline' },
+          { value: 'quotes', label: t('home.quotes'), icon: 'chat-outline' },
         ]}
       />
 
@@ -59,7 +64,7 @@ export function HomeScreen({ navigation }: Props) {
         disabled={!!creating}
         onPress={() => handleCreateRoom(false)}
       >
-        Створити кімнату (я ведучий)
+        {t('home.createHosted')}
       </Button>
       <Button
         mode="contained-tonal"
@@ -68,14 +73,14 @@ export function HomeScreen({ navigation }: Props) {
         disabled={!!creating}
         onPress={() => handleCreateRoom(true)}
       >
-        Створити кімнату без ведучого
+        {t('home.createHostless')}
       </Button>
       <Button mode="outlined" style={styles.button} onPress={() => navigation.navigate('JoinRoom')}>
-        Приєднатися за кодом
+        {t('home.joinByCode')}
       </Button>
       {!guest && (
         <Button mode="text" style={styles.button} onPress={() => navigation.navigate('History')}>
-          Моя історія ігор
+          {t('home.history')}
         </Button>
       )}
       <HelperText type="error" visible={!!error}>
@@ -83,7 +88,7 @@ export function HomeScreen({ navigation }: Props) {
       </HelperText>
 
       <Button mode="text" textColor="#999" style={styles.signOut} onPress={() => signOut()}>
-        Вийти
+        {t('home.signOut')}
       </Button>
     </View>
   );

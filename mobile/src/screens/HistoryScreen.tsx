@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Card, Text } from 'react-native-paper';
 
+import { useLanguageStore, useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { historyService } from '@/services/history.service';
 import { GameHistoryEntry } from '@/types/game';
@@ -10,6 +11,8 @@ import { GameHistoryEntry } from '@/types/game';
 type Props = NativeStackScreenProps<RootStackParamList, 'History'>;
 
 export function HistoryScreen({}: Props) {
+  const t = useT();
+  const language = useLanguageStore((state) => state.language);
   const [entries, setEntries] = useState<GameHistoryEntry[] | null>(null);
 
   useEffect(() => {
@@ -32,15 +35,15 @@ export function HistoryScreen({}: Props) {
       contentContainerStyle={styles.container}
       data={entries}
       keyExtractor={(item) => item.id}
-      ListEmptyComponent={<Text style={styles.empty}>Ви ще не завершили жодної гри</Text>}
+      ListEmptyComponent={<Text style={styles.empty}>{t('history.empty')}</Text>}
       renderItem={({ item }) => (
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium">
-              Кімната {item.roomCode} — {item.placement} місце з {item.playerCount}
+              {t('history.room', { code: item.roomCode, placement: item.placement, count: item.playerCount })}
             </Text>
             <Text style={styles.details}>
-              {item.score} балів · {new Date(item.playedAt).toLocaleDateString()}
+              {t('history.score', { score: item.score, date: new Date(item.playedAt).toLocaleDateString(language) })}
             </Text>
           </Card.Content>
         </Card>

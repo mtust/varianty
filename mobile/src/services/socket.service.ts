@@ -1,5 +1,6 @@
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 
+import { localizeServerError, translate } from '@/i18n';
 import { WS_URL } from '@/services/api.service';
 import {
   HostQuestion,
@@ -16,8 +17,6 @@ interface RoomHandlers {
   onHostQuestion: (question: HostQuestion) => void;
   onError: (error: ServerError) => void;
 }
-
-const CONNECT_FAILED_MESSAGE = 'Не вдалося підключитися до кімнати';
 
 class GameSocketService {
   private client: Client | null = null;
@@ -54,14 +53,14 @@ class GameSocketService {
           console.error('[STOMP] error frame', frame.headers, frame.body);
           if (!settled) {
             settled = true;
-            reject(new Error(frame.headers.message ?? 'STOMP error'));
+            reject(new Error(frame.headers.message ? localizeServerError(frame.headers.message) : translate('errors.connectRoom')));
           }
         },
         onWebSocketError: (event) => {
           console.error('[STOMP] websocket error', event);
           if (!settled) {
             settled = true;
-            reject(event instanceof Error ? event : new Error(CONNECT_FAILED_MESSAGE));
+            reject(event instanceof Error ? event : new Error(translate('errors.connectRoom')));
           }
         },
         onWebSocketClose: (event) => {
@@ -69,7 +68,7 @@ class GameSocketService {
           // this.client is cleared by disconnect(), so leaving the lobby isn't reported as a failure.
           if (!settled && this.client === client) {
             settled = true;
-            reject(new Error(CONNECT_FAILED_MESSAGE));
+            reject(new Error(translate('errors.connectRoom')));
           }
         },
       });

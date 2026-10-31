@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Snackbar, Text } from 'react-native-paper';
 
+import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
@@ -11,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 type Props = NativeStackScreenProps<RootStackParamList, 'Lobby'>;
 
 export function LobbyScreen({ route, navigation }: Props) {
+  const t = useT();
   const { code, isHost } = route.params;
   const token = useAuthStore((state) => state.token);
   const { snapshot, error, clearError, connectAndJoin, leaveRoom, startGame } = useGameStore(
@@ -28,7 +30,7 @@ export function LobbyScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     connectAndJoin(token!, code, isHost).catch((err: Error) => {
-      useGameStore.setState({ error: err.message || 'Не вдалося підключитися до кімнати' });
+      useGameStore.setState({ error: err.message || t('errors.connectRoom') });
     });
     return () => {
       // Don't tear down the connection when we're navigating forward into the
@@ -53,12 +55,12 @@ export function LobbyScreen({ route, navigation }: Props) {
         {error ? (
           <>
             <Text style={styles.loadingText}>{error}</Text>
-            <Button onPress={() => navigation.goBack()}>Назад</Button>
+            <Button onPress={() => navigation.goBack()}>{t('lobby.back')}</Button>
           </>
         ) : (
           <>
             <ActivityIndicator size="large" />
-            <Text style={styles.loadingText}>Підключення до кімнати...</Text>
+            <Text style={styles.loadingText}>{t('lobby.connecting')}</Text>
           </>
         )}
       </View>
@@ -71,18 +73,18 @@ export function LobbyScreen({ route, navigation }: Props) {
         {snapshot.code}
       </Text>
       <Text style={styles.hostLabel}>
-        {snapshot.hostless ? `Кімнату створив: ${snapshot.hostDisplayName}` : `Ведучий: ${snapshot.hostDisplayName}`}
+        {t(snapshot.hostless ? 'lobby.creator' : 'lobby.host', { name: snapshot.hostDisplayName })}
       </Text>
 
       <FlatList
         style={styles.list}
         data={snapshot.players}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.empty}>Ще немає гравців — поділіться кодом кімнати</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>{t('lobby.empty')}</Text>}
         renderItem={({ item }) => (
           <View style={styles.playerRow}>
             <Text style={styles.playerName}>{item.displayName}</Text>
-            {!item.connected && <Text style={styles.disconnected}>відключився</Text>}
+            {!item.connected && <Text style={styles.disconnected}>{t('lobby.disconnected')}</Text>}
           </View>
         )}
       />
@@ -97,15 +99,15 @@ export function LobbyScreen({ route, navigation }: Props) {
             startGame();
           }}
         >
-          Почати гру ({snapshot.players.length} гравців)
+          {t('lobby.start', { count: snapshot.players.length })}
         </Button>
       )}
       {isHost && snapshot.players.length < 2 && (
-        <Text style={styles.hint}>Потрібно щонайменше 2 гравці</Text>
+        <Text style={styles.hint}>{t('lobby.needTwo')}</Text>
       )}
       {!isHost && (
         <Text style={styles.hint}>
-          {snapshot.hostless ? 'Очікуємо, поки організатор почне гру...' : 'Очікуємо, поки ведучий почне гру...'}
+          {t(snapshot.hostless ? 'lobby.waitCreator' : 'lobby.waitHost')}
         </Text>
       )}
 

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 
+import { localizeServerError, useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 type Props = NativeStackScreenProps<RootStackParamList, 'EmailAuth'>;
 
 export function EmailAuthScreen({}: Props) {
+  const t = useT();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,7 +23,7 @@ export function EmailAuthScreen({}: Props) {
   const handleSubmit = async () => {
     setError(null);
     if (!email.trim() || !password.trim() || (mode === 'register' && !displayName.trim())) {
-      setError("Заповніть усі поля");
+      setError(t('auth.fillAll'));
       return;
     }
     setLoading(true);
@@ -32,7 +34,8 @@ export function EmailAuthScreen({}: Props) {
           : await authService.registerWithEmail(email.trim(), password, displayName.trim());
       await setSession(session);
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Не вдалося увійти');
+      const message = e?.response?.data?.message;
+      setError(message ? localizeServerError(message) : t('auth.failed'));
     } finally {
       setLoading(false);
     }
@@ -45,12 +48,12 @@ export function EmailAuthScreen({}: Props) {
         onValueChange={(value) => setMode(value as 'login' | 'register')}
         style={styles.segmented}
         buttons={[
-          { value: 'login', label: 'Вхід' },
-          { value: 'register', label: 'Реєстрація' },
+          { value: 'login', label: t('auth.login') },
+          { value: 'register', label: t('auth.register') },
         ]}
       />
       {mode === 'register' && (
-        <TextInput mode="outlined" label="Ім'я" value={displayName} onChangeText={setDisplayName} style={styles.field} />
+        <TextInput mode="outlined" label={t('auth.name')} value={displayName} onChangeText={setDisplayName} style={styles.field} />
       )}
       <TextInput
         mode="outlined"
@@ -63,7 +66,7 @@ export function EmailAuthScreen({}: Props) {
       />
       <TextInput
         mode="outlined"
-        label="Пароль"
+        label={t('auth.password')}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -73,9 +76,9 @@ export function EmailAuthScreen({}: Props) {
         {error}
       </HelperText>
       <Button mode="contained" loading={loading} disabled={loading} onPress={handleSubmit}>
-        {mode === 'login' ? 'Увійти' : 'Зареєструватися'}
+        {mode === 'login' ? t('auth.loginAction') : t('auth.registerAction')}
       </Button>
-      <Text style={styles.note}>Акаунт зберігає історію та результати ваших ігор</Text>
+      <Text style={styles.note}>{t('auth.note')}</Text>
     </View>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Card, Chip, Icon, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
 
+import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
@@ -13,6 +14,7 @@ import { useShallow } from 'zustand/react/shallow';
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 
 export function GameScreen({ navigation }: Props) {
+  const t = useT();
   const playerId = useAuthStore((s) => s.playerId);
   const state = useGameStore(
     useShallow((s) => ({
@@ -90,9 +92,9 @@ export function GameScreen({ navigation }: Props) {
   };
 
   const confirmLeave = () => {
-    Alert.alert('Вийти з кімнати?', 'Ви покинете гру, і вона продовжиться без вас.', [
-      { text: 'Скасувати', style: 'cancel' },
-      { text: 'Вийти', style: 'destructive', onPress: goHome },
+    Alert.alert(t('game.leaveTitle'), t('game.leaveMessage'), [
+      { text: t('game.leaveCancel'), style: 'cancel' },
+      { text: t('game.leaveConfirm'), style: 'destructive', onPress: goHome },
     ]);
   };
 
@@ -101,15 +103,15 @@ export function GameScreen({ navigation }: Props) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Chip icon="numeric">
-            Раунд {snapshot.roundNumber}/{snapshot.totalRounds}
+            {t('game.round', { round: snapshot.roundNumber, total: snapshot.totalRounds })}
           </Chip>
           {remaining !== null && (
             <Chip icon="timer-outline" style={[styles.timerChip, remaining <= 10 && styles.timerUrgent]}>
-              {remaining}с
+              {t('game.seconds', { seconds: remaining })}
             </Chip>
           )}
         </View>
-        <IconButton icon="exit-to-app" onPress={confirmLeave} accessibilityLabel="Вийти з кімнати" />
+        <IconButton icon="exit-to-app" onPress={confirmLeave} accessibilityLabel={t('game.leaveLabel')} />
       </View>
 
       <ScoreBoard players={snapshot.players} />
@@ -134,46 +136,46 @@ export function GameScreen({ navigation }: Props) {
       {snapshot.status === 'TRAP' && state.isHost && (
         <View>
           <Text style={styles.correctAnswer}>
-            Правильна відповідь: {state.hostQuestion?.correctAnswer ?? '...'}
+            {t('game.correctAnswer', { answer: state.hostQuestion?.correctAnswer ?? '...' })}
           </Text>
-          <Text style={styles.instructions}>Придумайте переконливу, але хибну відповідь-пастку</Text>
-          <TextInput mode="outlined" label="Ваша пастка" value={trapText} onChangeText={setTrapText} />
+          <Text style={styles.instructions}>{t('game.trapPrompt')}</Text>
+          <TextInput mode="outlined" label={t('game.trapLabel')} value={trapText} onChangeText={setTrapText} />
           <Button mode="contained" style={styles.action} disabled={!trapText.trim()} onPress={() => submitTrap(trapText.trim())}>
-            Надіслати пастку
+            {t('game.trapSubmit')}
           </Button>
         </View>
       )}
       {snapshot.status === 'TRAP' && !state.isHost && (
-        <WaitingBlock text="Ведучий готує пастку..." />
+        <WaitingBlock text={t('game.trapWaiting')} />
       )}
 
       {snapshot.status === 'ANSWERING' && isNonPlayingHost && (
-        <WaitingBlock text={`Гравці відповідають: ${snapshot.answeredCount}/${snapshot.players.length}`} />
+        <WaitingBlock text={t('game.answering', { count: snapshot.answeredCount, total: snapshot.players.length })} />
       )}
       {snapshot.status === 'ANSWERING' && !isNonPlayingHost && !state.mySubmittedAnswer && (
         <View>
-          <Text style={styles.instructions}>Що, на вашу думку, може бути правильною відповіддю?</Text>
-          <TextInput mode="outlined" label="Ваша відповідь" value={answerText} onChangeText={setAnswerText} />
+          <Text style={styles.instructions}>{t('game.answerPrompt')}</Text>
+          <TextInput mode="outlined" label={t('game.answerLabel')} value={answerText} onChangeText={setAnswerText} />
           <Button
             mode="contained"
             style={styles.action}
             disabled={!answerText.trim()}
             onPress={() => submitAnswer(answerText.trim())}
           >
-            Надіслати відповідь
+            {t('game.answerSubmit')}
           </Button>
         </View>
       )}
       {snapshot.status === 'ANSWERING' && !isNonPlayingHost && state.mySubmittedAnswer && (
-        <WaitingBlock text="Очікуємо на інших гравців..." />
+        <WaitingBlock text={t('game.waitingPlayers')} />
       )}
 
       {snapshot.status === 'VOTING' && isNonPlayingHost && (
-        <WaitingBlock text={`Голосування: ${snapshot.votedCount}/${snapshot.players.length}`} />
+        <WaitingBlock text={t('game.voting', { count: snapshot.votedCount, total: snapshot.players.length })} />
       )}
       {snapshot.status === 'VOTING' && !isNonPlayingHost && !state.myVoted && state.votingOptions && (
         <View>
-          <Text style={styles.instructions}>Яка відповідь, на вашу думку, правильна?</Text>
+          <Text style={styles.instructions}>{t('game.votePrompt')}</Text>
           {state.votingOptions.options.map((option) => (
             <Button key={option.id} mode="outlined" style={styles.optionButton} onPress={() => submitVote(option.id)}>
               {option.text}
@@ -182,14 +184,14 @@ export function GameScreen({ navigation }: Props) {
         </View>
       )}
       {snapshot.status === 'VOTING' && !isNonPlayingHost && state.myVoted && (
-        <WaitingBlock text="Очікуємо на інших гравців..." />
+        <WaitingBlock text={t('game.waitingPlayers')} />
       )}
 
       {roundResult && (
         <View>
           {myDelta !== undefined && (
             <View style={styles.myDelta}>
-              <Text variant="titleMedium">Ваші бали за раунд</Text>
+              <Text variant="titleMedium">{t('results.myPoints')}</Text>
               <Text
                 variant="headlineMedium"
                 style={[styles.myDeltaValue, myDelta > 0 && styles.gain, myDelta < 0 && styles.loss]}
@@ -204,13 +206,13 @@ export function GameScreen({ navigation }: Props) {
           ))}
 
           <Text variant="titleMedium" style={styles.scoreboardTitle}>
-            Рахунок
+            {t('results.score')}
           </Text>
           {roundResult.scoreboard.map((player, index) => (
             <View key={player.id} style={[styles.scoreRow, player.id === playerId && styles.myScoreRow]}>
               <Text style={player.id === playerId ? styles.scoreDelta : undefined}>
                 {index + 1}. {player.displayName}
-                {player.id === playerId ? ' (ви)' : ''}
+                {player.id === playerId ? t('results.you') : ''}
               </Text>
               <Text style={styles.scoreDelta}>
                 {player.score} {formatDelta(roundResult.scoreDeltas[player.id])}
@@ -220,7 +222,7 @@ export function GameScreen({ navigation }: Props) {
 
           {state.isHost && (
             <Button mode="contained" style={styles.action} onPress={() => nextRound()}>
-              {roundResult.gameFinished ? 'Завершити гру' : 'Наступний раунд'}
+              {t(roundResult.gameFinished ? 'game.finish' : 'game.nextRound')}
             </Button>
           )}
         </View>
@@ -229,7 +231,7 @@ export function GameScreen({ navigation }: Props) {
       {snapshot.status === 'FINISHED' && (
         <View>
           <Text variant="headlineSmall" style={styles.finishedTitle}>
-            Гру завершено!
+            {t('game.finished')}
           </Text>
           {snapshot.players.map((player, index) => (
             <View key={player.id} style={styles.scoreRow}>
@@ -240,7 +242,7 @@ export function GameScreen({ navigation }: Props) {
             </View>
           ))}
           <Button mode="contained" style={styles.action} onPress={goHome}>
-            На головну
+            {t('game.home')}
           </Button>
         </View>
       )}
@@ -302,10 +304,11 @@ function NextRoundBanner({
   hostName: string;
   lastRound: boolean;
 }) {
-  const who = hostless ? hostName : `ведучий ${hostName}`;
+  const t = useT();
+  const who = hostless ? hostName : t('banner.hostName', { name: hostName });
   const text = isHost
-    ? `Усі чекають на вас. Перегляньте результати й натисніть «${lastRound ? 'Завершити гру' : 'Наступний раунд'}» унизу`
-    : `Раунд завершено. Чекаємо, поки ${who} ${lastRound ? 'завершить гру' : 'почне наступний раунд'}`;
+    ? t('banner.host', { button: t(lastRound ? 'game.finish' : 'game.nextRound') })
+    : t(lastRound ? 'banner.waitFinish' : 'banner.waitNext', { who });
   return (
     <View style={styles.banner} accessibilityLiveRegion="polite">
       <Icon source={isHost ? 'gesture-tap' : 'clock-outline'} size={24} color={theme.colors.secondary} />
@@ -317,20 +320,21 @@ function NextRoundBanner({
 }
 
 function ResultOptionCard({ option, isMyVote }: { option: RevealedOption; isMyVote: boolean }) {
+  const t = useT();
   const voters = option.votedByDisplayNames;
   const label = option.correct
-    ? '✓ Правильна відповідь'
+    ? t('results.correct')
     : option.hostTrap
-      ? 'Пастка ведучого'
-      : option.authorLabel.replace(/^Автор: /, 'Брехня: ');
+      ? t('results.trap')
+      : t('results.lie', { name: authorName(option.authorLabel) || t('results.unknownPlayer') });
   const pointsLabel =
     voters.length === 0
-      ? 'Ніхто не обрав'
+      ? t('results.noVotes')
       : option.correct
-        ? '+2 кожному, хто вгадав'
+        ? t('results.correctPoints')
         : option.hostTrap
-          ? '−1 кожному, хто повівся'
-          : `+${voters.length} автору`;
+          ? t('results.trapPoints')
+          : t('results.authorPoints', { count: voters.length });
   const onFill = option.correct ? styles.onFillText : undefined;
 
   return (
@@ -347,7 +351,7 @@ function ResultOptionCard({ option, isMyVote }: { option: RevealedOption; isMyVo
         <Text variant="titleMedium" style={onFill}>
           {option.text}
         </Text>
-        {isMyVote && <Text style={[styles.myVoteLabel, onFill]}>Ваш вибір</Text>}
+        {isMyVote && <Text style={[styles.myVoteLabel, onFill]}>{t('results.myVote')}</Text>}
         {voters.length > 0 && (
           <View style={styles.voters}>
             {voters.map((name, index) => (
@@ -361,6 +365,12 @@ function ResultOptionCard({ option, isMyVote }: { option: RevealedOption; isMyVo
       </Card.Content>
     </Card>
   );
+}
+
+// The server labels authors in Ukrainian ("Автор: Ім'я"), or "Гравець" if they left the room.
+function authorName(authorLabel: string) {
+  const name = authorLabel.replace(/^Автор: /, '');
+  return name === 'Гравець' ? '' : name;
 }
 
 // The real answer first, then the trap, then the lies that fooled the most players.
