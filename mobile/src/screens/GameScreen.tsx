@@ -1,17 +1,19 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, Card, Chip, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
+import { ActivityIndicator, Button, Card, Chip, Icon, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
 
 import { RootStackParamList } from '@/navigation/types';
+import { useAuthStore } from '@/stores/authStore';
 import { useGameStore } from '@/stores/gameStore';
-import { colors } from '@/theme/theme';
-import { PlayerScore } from '@/types/game';
+import { colors, theme } from '@/theme/theme';
+import { PlayerScore, RevealedOption } from '@/types/game';
 import { useShallow } from 'zustand/react/shallow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 
 export function GameScreen({ navigation }: Props) {
+  const playerId = useAuthStore((s) => s.playerId);
   const state = useGameStore(
     useShallow((s) => ({
       isHost: s.isHost,
@@ -77,6 +79,10 @@ export function GameScreen({ navigation }: Props) {
   // In a hostless room the creator plays like everyone else — only a "real"
   // (non-playing, trap-writing) host should be excluded from answering/voting.
   const isNonPlayingHost = state.isHost && !snapshot.hostless;
+  const roundResult = snapshot.status === 'RESULTS' ? state.roundResult : null;
+  const correctAnswer = roundResult?.options.find((option) => option.correct)?.text;
+  // A non-playing host isn't in scoreDeltas, so they get no personal points line.
+  const myDelta = roundResult && playerId ? roundResult.scoreDeltas[playerId] : undefined;
 
   const goHome = () => {
     leaveRoom();
@@ -111,9 +117,18 @@ export function GameScreen({ navigation }: Props) {
       {snapshot.fact && (
         <Card style={styles.factCard}>
           <Card.Content>
-            <Text variant="titleMedium">{snapshot.fact}</Text>
+            <FactText fact={snapshot.fact} answer={correctAnswer} />
           </Card.Content>
         </Card>
+      )}
+
+      {snapshot.status === 'RESULTS' && (
+        <NextRoundBanner
+          isHost={state.isHost}
+          hostless={snapshot.hostless}
+          hostName={snapshot.hostDisplayName}
+          lastRound={snapshot.roundNumber >= snapshot.totalRounds}
+        />
       )}
 
       {snapshot.status === 'TRAP' && state.isHost && (
@@ -170,63 +185,42 @@ export function GameScreen({ navigation }: Props) {
         <WaitingBlock text="Очікуємо на інших гравців..." />
       )}
 
-      {snapshot.status === 'RESULTS' && state.roundResult && (
+      {roundResult && (
         <View>
-          {state.roundResult.options.map((option) => {
-            const pointsLabel = option.correct
-              ? '+2 голосувавшим'
-              : option.hostTrap
-                ? '−1 голосувавшим'
-                : option.votedByDisplayNames.length > 0
-                  ? `+${option.votedByDisplayNames.length} автору`
-                  : null;
-            // Fill an option only if it's the one you voted for — green when you got it
-            // right, red when you fell for the trap, grey for another player's answer.
-            // The real correct answer still gets a subtle outline even if you didn't pick it.
-            const isMyVote = option.id === state.myVoteOptionId;
-            const cardStyle = isMyVote
-              ? option.correct
-                ? styles.correctCard
-                : option.hostTrap
-                  ? styles.trapCard
-                  : styles.neutralCard
-              : option.correct
-                ? styles.correctOutline
-                : undefined;
-            const onFill = isMyVote && (option.correct || option.hostTrap) ? styles.onFillText : undefined;
-            return (
-              <Card key={option.id} style={[styles.resultCard, cardStyle]}>
-                <Card.Content>
-                  <Text variant="bodyLarge" style={onFill}>
-                    {option.text}
-                  </Text>
-                  <Text style={[styles.authorLabel, onFill]}>{option.authorLabel}</Text>
-                  {option.votedByDisplayNames.length > 0 && (
-                    <Text style={[styles.votedBy, onFill]}>
-                      Голосували: {option.votedByDisplayNames.join(', ')}
-                      {pointsLabel ? ` (${pointsLabel})` : ''}
-                    </Text>
-                  )}
-                </Card.Content>
-              </Card>
-            );
-          })}
+          {myDelta !== undefined && (
+            <View style={styles.myDelta}>
+              <Text variant="titleMedium">Ваші бали за раунд</Text>
+              <Text
+                variant="headlineMedium"
+                style={[styles.myDeltaValue, myDelta > 0 && styles.gain, myDelta < 0 && styles.loss]}
+              >
+                {formatPoints(myDelta)}
+              </Text>
+            </View>
+          )}
+
+          {sortOptions(roundResult.options).map((option) => (
+            <ResultOptionCard key={option.id} option={option} isMyVote={option.id === state.myVoteOptionId} />
+          ))}
 
           <Text variant="titleMedium" style={styles.scoreboardTitle}>
             Рахунок
           </Text>
-          {state.roundResult.scoreboard.map((player) => (
-            <View key={player.id} style={styles.scoreRow}>
-              <Text>{player.displayName}</Text>
+          {roundResult.scoreboard.map((player, index) => (
+            <View key={player.id} style={[styles.scoreRow, player.id === playerId && styles.myScoreRow]}>
+              <Text style={player.id === playerId ? styles.scoreDelta : undefined}>
+                {index + 1}. {player.displayName}
+                {player.id === playerId ? ' (ви)' : ''}
+              </Text>
               <Text style={styles.scoreDelta}>
-                {player.score} {formatDelta(state.roundResult!.scoreDeltas[player.id])}
+                {player.score} {formatDelta(roundResult.scoreDeltas[player.id])}
               </Text>
             </View>
           ))}
 
           {state.isHost && (
             <Button mode="contained" style={styles.action} onPress={() => nextRound()}>
-              {state.roundResult.gameFinished ? 'Завершити гру' : 'Наступний раунд'}
+              {roundResult.gameFinished ? 'Завершити гру' : 'Наступний раунд'}
             </Button>
           )}
         </View>
@@ -280,9 +274,110 @@ function WaitingBlock({ text }: { text: string }) {
   );
 }
 
+// The server sends the fact with a ___ blank; on results it's filled with the real answer.
+function FactText({ fact, answer }: { fact: string; answer?: string }) {
+  const parts = fact.split('___');
+  if (!answer || parts.length < 2) {
+    return <Text variant="titleMedium">{fact}</Text>;
+  }
+  return (
+    <Text variant="titleMedium">
+      {parts[0]}
+      <Text variant="titleMedium" style={styles.factAnswer}>
+        {answer}
+      </Text>
+      {parts.slice(1).join('___')}
+    </Text>
+  );
+}
+
+function NextRoundBanner({
+  isHost,
+  hostless,
+  hostName,
+  lastRound,
+}: {
+  isHost: boolean;
+  hostless: boolean;
+  hostName: string;
+  lastRound: boolean;
+}) {
+  const who = hostless ? hostName : `ведучий ${hostName}`;
+  const text = isHost
+    ? `Усі чекають на вас. Перегляньте результати й натисніть «${lastRound ? 'Завершити гру' : 'Наступний раунд'}» унизу`
+    : `Раунд завершено. Чекаємо, поки ${who} ${lastRound ? 'завершить гру' : 'почне наступний раунд'}`;
+  return (
+    <View style={styles.banner} accessibilityLiveRegion="polite">
+      <Icon source={isHost ? 'gesture-tap' : 'clock-outline'} size={24} color={theme.colors.secondary} />
+      <Text variant="bodyMedium" style={styles.bannerText}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function ResultOptionCard({ option, isMyVote }: { option: RevealedOption; isMyVote: boolean }) {
+  const voters = option.votedByDisplayNames;
+  const label = option.correct
+    ? '✓ Правильна відповідь'
+    : option.hostTrap
+      ? 'Пастка ведучого'
+      : option.authorLabel.replace(/^Автор: /, 'Брехня: ');
+  const pointsLabel =
+    voters.length === 0
+      ? 'Ніхто не обрав'
+      : option.correct
+        ? '+2 кожному, хто вгадав'
+        : option.hostTrap
+          ? '−1 кожному, хто повівся'
+          : `+${voters.length} автору`;
+  const onFill = option.correct ? styles.onFillText : undefined;
+
+  return (
+    <Card
+      style={[
+        styles.resultCard,
+        option.correct && styles.correctCard,
+        option.hostTrap && styles.trapCard,
+        isMyVote && styles.myVoteCard,
+      ]}
+    >
+      <Card.Content>
+        <Text style={[styles.optionLabel, onFill, option.hostTrap && styles.loss]}>{label}</Text>
+        <Text variant="titleMedium" style={onFill}>
+          {option.text}
+        </Text>
+        {isMyVote && <Text style={[styles.myVoteLabel, onFill]}>Ваш вибір</Text>}
+        {voters.length > 0 && (
+          <View style={styles.voters}>
+            {voters.map((name, index) => (
+              <Chip key={`${name}-${index}`} compact style={styles.voterChip}>
+                {name}
+              </Chip>
+            ))}
+          </View>
+        )}
+        <Text style={[styles.pointsLabel, onFill]}>{pointsLabel}</Text>
+      </Card.Content>
+    </Card>
+  );
+}
+
+// The real answer first, then the trap, then the lies that fooled the most players.
+function sortOptions(options: RevealedOption[]) {
+  const rank = (option: RevealedOption) => (option.correct ? 0 : option.hostTrap ? 1 : 2);
+  return [...options].sort(
+    (a, b) => rank(a) - rank(b) || b.votedByDisplayNames.length - a.votedByDisplayNames.length
+  );
+}
+
+function formatPoints(delta: number) {
+  if (delta > 0) return `+${delta}`;
+  return delta < 0 ? `−${-delta}` : '0';
+}
+
 function formatDelta(delta: number | undefined) {
-  if (!delta) return '';
-  return delta > 0 ? `(+${delta})` : `(${delta})`;
+  return delta ? `(${formatPoints(delta)})` : '';
 }
 
 const styles = StyleSheet.create({
@@ -295,6 +390,28 @@ const styles = StyleSheet.create({
   scoreboardScroll: { marginBottom: 16 },
   scoreboardChip: { marginRight: 8 },
   factCard: { marginBottom: 20 },
+  factAnswer: { color: colors.correct, fontWeight: '700' },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bannerSoft,
+    borderColor: theme.colors.secondary,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  bannerText: { flex: 1, marginLeft: 10, fontWeight: '600' },
+  myDelta: {
+    alignItems: 'center',
+    backgroundColor: colors.highlightSoft,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  myDeltaValue: { fontWeight: '700' },
+  gain: { color: colors.correct },
+  loss: { color: colors.trap },
   correctAnswer: { opacity: 0.6, marginBottom: 4 },
   instructions: { marginBottom: 12 },
   action: { marginTop: 16 },
@@ -303,14 +420,17 @@ const styles = StyleSheet.create({
   waitingText: { marginTop: 12, opacity: 0.7 },
   resultCard: { marginBottom: 10 },
   correctCard: { backgroundColor: colors.correct },
-  correctOutline: { borderColor: colors.correct, borderWidth: 2 },
-  trapCard: { backgroundColor: colors.trap },
-  neutralCard: { backgroundColor: '#DADCE3' },
+  trapCard: { backgroundColor: colors.trapSoft },
+  myVoteCard: { borderColor: theme.colors.primary, borderWidth: 2 },
   onFillText: { color: '#FFFFFF' },
-  authorLabel: { opacity: 0.8, marginTop: 4, fontWeight: '600' },
-  votedBy: { marginTop: 4, fontSize: 12, opacity: 0.5 },
+  optionLabel: { fontWeight: '700', marginBottom: 4 },
+  myVoteLabel: { marginTop: 4, fontWeight: '600' },
+  voters: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+  voterChip: { marginRight: 6, marginBottom: 6 },
+  pointsLabel: { marginTop: 4, fontSize: 13, fontWeight: '600', opacity: 0.8 },
   scoreboardTitle: { marginTop: 20, marginBottom: 8 },
-  scoreRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+  scoreRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, paddingHorizontal: 8 },
+  myScoreRow: { backgroundColor: colors.highlightSoft, borderRadius: 8 },
   scoreDelta: { fontWeight: '600' },
   finishedTitle: { textAlign: 'center', marginBottom: 20 },
 });

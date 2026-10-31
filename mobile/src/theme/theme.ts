@@ -15,4 +15,7 @@ export const colors = {
   correct: '#3FB27F',
   trap: '#E24E4E',
   neutral: '#6E45E2',
+  trapSoft: '#FDECEC',
+  bannerSoft: '#FFF3E6',
+  highlightSoft: '#EDE7FC',
 };
