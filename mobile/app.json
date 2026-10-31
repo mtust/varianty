@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Варіанти",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,9 +16,8 @@
     "android": {
       "package": "com.tustanovskyy.varianty",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6E45E2",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -31,6 +30,18 @@
         "projectId": "49453eaf-945e-47c3-ac92-373d52b60f63"
       }
     },
-    "owner": "myro"
+    "owner": "myro",
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F5FB"
+        }
+      ],
+      "expo-font"
+    ]
   }
 }

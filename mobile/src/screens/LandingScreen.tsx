@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 
 import { RootStackParamList } from '@/navigation/types';
@@ -9,6 +9,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Landing'>;
 export function LandingScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
+      <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel="Логотип Варіанти" />
       <Text variant="displaySmall" style={styles.title}>
         Варіанти
       </Text>
@@ -28,6 +29,7 @@ export function LandingScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24 },
+  logo: { width: 120, height: 120, alignSelf: 'center', marginBottom: 20 },
   title: { textAlign: 'center', fontWeight: '700' },
   subtitle: { textAlign: 'center', marginTop: 8, marginBottom: 48, opacity: 0.7 },
   button: { marginTop: 12 },
