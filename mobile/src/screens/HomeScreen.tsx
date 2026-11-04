@@ -1,13 +1,15 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Button, HelperText, SegmentedButtons, Text } from 'react-native-paper';
 
 import { LanguageSwitch } from '@/components/LanguageSwitch';
 import { useLanguageStore, useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
+import { authService } from '@/services/auth.service';
 import { QuestionCategory, roomService } from '@/services/room.service';
 import { useAuthStore } from '@/stores/authStore';
+import { theme } from '@/theme/theme';
 import { useShallow } from 'zustand/react/shallow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -25,6 +27,26 @@ export function HomeScreen({ navigation }: Props) {
   const [category, setCategory] = useState<QuestionCategory>('facts');
   const [creating, setCreating] = useState<'host' | 'hostless' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteAccount = async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      await authService.deleteAccount();
+      await signOut();
+    } catch {
+      setError(t('home.deleteFailed'));
+      setDeleting(false);
+    }
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(t('home.deleteTitle'), t('home.deleteMessage'), [
+      { text: t('home.cancel'), style: 'cancel' },
+      { text: t('home.deleteConfirm'), style: 'destructive', onPress: deleteAccount },
+    ]);
+  };
 
   const handleCreateRoom = async (hostless: boolean) => {
     setCreating(hostless ? 'hostless' : 'host');
@@ -90,6 +112,17 @@ export function HomeScreen({ navigation }: Props) {
       <Button mode="text" textColor="#999" style={styles.signOut} onPress={() => signOut()}>
         {t('home.signOut')}
       </Button>
+      {!guest && (
+        <Button
+          mode="text"
+          textColor={theme.colors.error}
+          loading={deleting}
+          disabled={deleting}
+          onPress={confirmDeleteAccount}
+        >
+          {t('home.deleteAccount')}
+        </Button>
+      )}
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { localizeServerError } from '@/i18n';
+import { localizeServerError, translate } from '@/i18n';
 import { gameSocket } from '@/services/socket.service';
 import { HostQuestion, RoomSnapshot, RoundResult, VotingStarted } from '@/types/game';
 
@@ -15,6 +15,8 @@ interface GameState {
   myVoted: boolean;
   myVoteOptionId: string | null;
   error: string | null;
+  /** Set when the host removed this player from the room; screens leave the room and go home. */
+  kicked: boolean;
 
   connectAndJoin: (token: string, code: string, isHost: boolean) => Promise<void>;
   startGame: () => void;
@@ -22,6 +24,7 @@ interface GameState {
   submitAnswer: (text: string) => void;
   submitVote: (optionId: string) => void;
   nextRound: () => void;
+  kickPlayer: (playerId: string) => void;
   leaveRoom: () => void;
   clearError: () => void;
 }
@@ -37,10 +40,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   myVoted: false,
   myVoteOptionId: null,
   error: null,
+  kicked: false,
 
   connectAndJoin: async (token, code, isHost) => {
     await gameSocket.connect(token);
-    set({ code, isHost });
+    set({ code, isHost, kicked: false });
     gameSocket.joinRoom(code, {
       onSnapshot: (snapshot) => {
         const previous = get().snapshot;
@@ -64,6 +68,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       onVotingStarted: (voting) => set({ votingOptions: voting }),
       onRoundResult: (result) => set({ roundResult: result }),
       onHostQuestion: (question) => set({ hostQuestion: question }),
+      onKicked: () => {
+        // Stop the socket right away so a reconnect doesn't try to rejoin; the screens
+        // see `kicked` and navigate home.
+        gameSocket.disconnect();
+        set({ kicked: true, error: translate('room.kicked') });
+      },
       onError: (error) => {
         // A rejected vote/answer (e.g. voting for your own answer) must roll back
         // the optimistic flag, or the UI is stuck on the "waiting" screen with no
@@ -94,6 +104,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   nextRound: () => gameSocket.nextRound(get().code!),
 
+  kickPlayer: (playerId) => gameSocket.kickPlayer(get().code!, playerId),
+
   leaveRoom: () => {
     gameSocket.disconnect();
     set({
@@ -107,6 +119,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       myVoted: false,
       myVoteOptionId: null,
       error: null,
+      kicked: false,
     });
   },
 

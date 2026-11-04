@@ -38,6 +38,12 @@ export const uk = {
   'home.history': 'Моя історія ігор',
   'home.signOut': 'Вийти',
   'home.createFailed': 'Не вдалося створити кімнату',
+  'home.deleteAccount': 'Видалити акаунт',
+  'home.deleteTitle': 'Видалити акаунт?',
+  'home.deleteMessage': 'Ваш акаунт і вся історія ігор будуть видалені назавжди. Цю дію не можна скасувати.',
+  'home.deleteConfirm': 'Видалити',
+  'home.cancel': 'Скасувати',
+  'home.deleteFailed': 'Не вдалося видалити акаунт',
 
   'join.hint': 'Введіть код, який показав ведучий',
   'join.code': 'Код кімнати',
@@ -56,6 +62,13 @@ export const uk = {
   'lobby.needTwo': 'Потрібно щонайменше 2 гравці',
   'lobby.waitCreator': 'Очікуємо, поки організатор почне гру...',
   'lobby.waitHost': 'Очікуємо, поки ведучий почне гру...',
+  'lobby.removeLabel': 'Видалити {name} з кімнати',
+
+  'room.kicked': 'Ведучий видалив вас з кімнати',
+  'room.kickTitle': 'Видалити гравця?',
+  'room.kickMessage': '{name} буде видалено з кімнати, і він не зможе повернутися.',
+  'room.kickConfirm': 'Видалити',
+  'room.kickCancel': 'Скасувати',
 
   'game.round': 'Раунд {round}/{total}',
   'game.seconds': '{seconds}с',
@@ -125,6 +138,8 @@ export const uk = {
   'errors.guestHistory': 'Гостьові акаунти не мають історії ігор',
   'errors.emailTaken': 'Цей email уже зареєстровано',
   'errors.invalidLogin': 'Неправильний email або пароль',
+  'errors.kickedFromRoom': 'Вас видалено з цієї кімнати',
+  'errors.cannotKickSelf': 'Не можна видалити себе з кімнати',
 };
 
 export type TranslationKey = keyof typeof uk;
@@ -170,6 +185,12 @@ export const en: Record<TranslationKey, string> = {
   'home.history': 'My game history',
   'home.signOut': 'Sign out',
   'home.createFailed': "Couldn't create the room",
+  'home.deleteAccount': 'Delete account',
+  'home.deleteTitle': 'Delete account?',
+  'home.deleteMessage': 'Your account and all your game history will be permanently deleted. This cannot be undone.',
+  'home.deleteConfirm': 'Delete',
+  'home.cancel': 'Cancel',
+  'home.deleteFailed': "Couldn't delete the account",
 
   'join.hint': 'Enter the code shown by the host',
   'join.code': 'Room code',
@@ -188,6 +209,13 @@ export const en: Record<TranslationKey, string> = {
   'lobby.needTwo': 'At least 2 players are needed',
   'lobby.waitCreator': 'Waiting for the room creator to start the game...',
   'lobby.waitHost': 'Waiting for the host to start the game...',
+  'lobby.removeLabel': 'Remove {name} from the room',
+
+  'room.kicked': 'You were removed from the room by the host',
+  'room.kickTitle': 'Remove player?',
+  'room.kickMessage': "{name} will be removed from the room and won't be able to rejoin.",
+  'room.kickConfirm': 'Remove',
+  'room.kickCancel': 'Cancel',
 
   'game.round': 'Round {round}/{total}',
   'game.seconds': '{seconds}s',
@@ -257,6 +285,8 @@ export const en: Record<TranslationKey, string> = {
   'errors.guestHistory': "Guest accounts don't have game history",
   'errors.emailTaken': 'This email is already registered',
   'errors.invalidLogin': 'Wrong email or password',
+  'errors.kickedFromRoom': 'You were removed from this room',
+  'errors.cannotKickSelf': "You can't remove yourself from the room",
 };
 
 // The server sends fixed Ukrainian or English messages; they're mapped here so they show in
@@ -285,4 +315,6 @@ export const serverErrors: Record<string, TranslationKey> = {
   'Гостьові акаунти не мають історії ігор': 'errors.guestHistory',
   'Email is already registered': 'errors.emailTaken',
   'Invalid email or password': 'errors.invalidLogin',
+  'Вас видалено з цієї кімнати': 'errors.kickedFromRoom',
+  'Не можна видалити себе з кімнати': 'errors.cannotKickSelf',
 };

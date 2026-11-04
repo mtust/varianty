@@ -2,6 +2,8 @@ package com.tustanovskyy.varianty.ws;
 
 import com.tustanovskyy.varianty.domain.dto.room.AnswerPayload;
 import com.tustanovskyy.varianty.domain.dto.room.ErrorDto;
+import com.tustanovskyy.varianty.domain.dto.room.KickPayload;
+import com.tustanovskyy.varianty.domain.dto.room.KickedDto;
 import com.tustanovskyy.varianty.domain.dto.room.RoomSnapshot;
 import com.tustanovskyy.varianty.domain.dto.room.TrapPayload;
 import com.tustanovskyy.varianty.domain.dto.room.VotePayload;
@@ -75,6 +77,19 @@ public class GameWebSocketController {
 		if (!result.finished() && result.snapshot().status().equals("TRAP")) {
 			messagingTemplate.convertAndSendToUser(
 					principal.playerId(), "/queue/host-question", roomService.currentHostQuestion(code, principal.playerId()));
+		}
+	}
+
+	@MessageMapping("/room/{code}/kick")
+	public void kick(@DestinationVariable String code, StompPrincipal principal, @Payload KickPayload payload) {
+		RoomService.KickResult result = roomService.kickPlayer(code, principal.playerId(), payload.playerId());
+		messagingTemplate.convertAndSendToUser(payload.playerId(), "/queue/kicked", new KickedDto(code));
+		broadcast(code, result.snapshot());
+		if (result.votingStarted() != null) {
+			messagingTemplate.convertAndSend("/topic/room/" + code + "/voting", result.votingStarted());
+		}
+		if (result.roundResult() != null) {
+			messagingTemplate.convertAndSend("/topic/room/" + code + "/results", result.roundResult());
 		}
 	}
 

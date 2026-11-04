@@ -6,23 +6,32 @@ import com.tustanovskyy.varianty.domain.dto.auth.LoginRequest;
 import com.tustanovskyy.varianty.domain.dto.auth.RegisterRequest;
 import com.tustanovskyy.varianty.domain.entity.User;
 import com.tustanovskyy.varianty.exception.ApiException;
+import com.tustanovskyy.varianty.repository.GameHistoryRepository;
 import com.tustanovskyy.varianty.repository.UserRepository;
 import com.tustanovskyy.varianty.security.JwtService;
+import com.tustanovskyy.varianty.security.PlayerPrincipal;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
 
 	private final UserRepository userRepository;
+	private final GameHistoryRepository gameHistoryRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 
-	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+	public AuthService(
+			UserRepository userRepository,
+			GameHistoryRepository gameHistoryRepository,
+			PasswordEncoder passwordEncoder,
+			JwtService jwtService) {
 		this.userRepository = userRepository;
+		this.gameHistoryRepository = gameHistoryRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 	}
@@ -54,6 +63,16 @@ public class AuthService {
 	public AuthResponse guest(GuestLoginRequest request) {
 		String guestId = "guest-" + UUID.randomUUID();
 		return issue(guestId, request.displayName().trim(), true);
+	}
+
+	/** Permanently deletes the user's game history and account. Guests have no stored data, so this is a no-op for them. */
+	@Transactional
+	public void deleteAccount(PlayerPrincipal principal) {
+		if (principal.guest()) {
+			return;
+		}
+		gameHistoryRepository.deleteByUserId(principal.playerId());
+		userRepository.deleteById(principal.playerId());
 	}
 
 	private AuthResponse issue(String playerId, String displayName, boolean guest) {

@@ -22,4 +22,9 @@ export const authService = {
     const { data } = await apiClient.post<AuthResponse>('/api/auth/guest', { displayName });
     return data;
   },
+
+  /** Permanently deletes the signed-in account and its game history. The Bearer token is added by apiClient. */
+  async deleteAccount(): Promise<void> {
+    await apiClient.delete('/api/auth/me');
+  },
 };
