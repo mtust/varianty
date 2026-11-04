@@ -19,6 +19,8 @@ public class GameRoom {
 
 	public final LinkedHashMap<String, PlayerState> players = new LinkedHashMap<>();
 	public final Set<String> usedQuestionIds = new HashSet<>();
+	/** Players the host removed; they can't join this room again. */
+	public final Set<String> kickedPlayerIds = new HashSet<>();
 
 	public RoomStatus status = RoomStatus.LOBBY;
 	public int roundNumber = 0;

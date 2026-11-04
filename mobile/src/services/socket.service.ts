@@ -4,6 +4,7 @@ import { localizeServerError, translate } from '@/i18n';
 import { WS_URL } from '@/services/api.service';
 import {
   HostQuestion,
+  KickedNotice,
   RoomSnapshot,
   RoundResult,
   ServerError,
@@ -16,6 +17,7 @@ interface RoomHandlers {
   onRoundResult: (result: RoundResult) => void;
   onHostQuestion: (question: HostQuestion) => void;
   onError: (error: ServerError) => void;
+  onKicked: (notice: KickedNotice) => void;
 }
 
 class GameSocketService {
@@ -93,6 +95,7 @@ class GameSocketService {
       client.subscribe(`/topic/room/${code}/results`, (msg) => handlers.onRoundResult(parse<RoundResult>(msg))),
       client.subscribe('/user/queue/host-question', (msg) => handlers.onHostQuestion(parse<HostQuestion>(msg))),
       client.subscribe('/user/queue/errors', (msg) => handlers.onError(parse<ServerError>(msg))),
+      client.subscribe('/user/queue/kicked', (msg) => handlers.onKicked(parse<KickedNotice>(msg))),
     ];
 
     client.publish({ destination: `/app/room/${code}/join`, body: '{}' });
@@ -112,6 +115,10 @@ class GameSocketService {
 
   submitVote(code: string, optionId: string) {
     this.requireClient().publish({ destination: `/app/room/${code}/vote`, body: JSON.stringify({ optionId }) });
+  }
+
+  kickPlayer(code: string, playerId: string) {
+    this.requireClient().publish({ destination: `/app/room/${code}/kick`, body: JSON.stringify({ playerId }) });
   }
 
   nextRound(code: string) {

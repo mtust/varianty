@@ -5,7 +5,11 @@ import com.tustanovskyy.varianty.domain.dto.auth.GuestLoginRequest;
 import com.tustanovskyy.varianty.domain.dto.auth.LoginRequest;
 import com.tustanovskyy.varianty.domain.dto.auth.RegisterRequest;
 import com.tustanovskyy.varianty.service.AuthService;
+import com.tustanovskyy.varianty.security.PlayerPrincipal;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,5 +38,11 @@ public class AuthResources {
 	@PostMapping("/guest")
 	public AuthResponse guest(@Valid @RequestBody GuestLoginRequest request) {
 		return authService.guest(request);
+	}
+
+	@DeleteMapping("/me")
+	public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal PlayerPrincipal principal) {
+		authService.deleteAccount(principal);
+		return ResponseEntity.noContent().build();
 	}
 }

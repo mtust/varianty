@@ -52,6 +52,10 @@ export interface RoundResult {
   gameFinished: boolean;
 }
 
+export interface KickedNotice {
+  roomCode: string;
+}
+
 export interface ServerError {
   message: string;
 }

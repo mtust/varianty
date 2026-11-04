@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface GameHistoryRepository extends JpaRepository<GameHistoryEntry, String> {
 
 	List<GameHistoryEntry> findByUserIdOrderByPlayedAtDesc(String userId);
+
+	void deleteByUserId(String userId);
 }

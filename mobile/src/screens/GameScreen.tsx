@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Card, Chip, Icon, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
 
+import { confirmKick, showKickedAlert } from '@/components/confirmKick';
 import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/stores/authStore';
@@ -27,10 +28,12 @@ export function GameScreen({ navigation }: Props) {
       myVoted: s.myVoted,
       myVoteOptionId: s.myVoteOptionId,
       error: s.error,
+      kicked: s.kicked,
     }))
   );
-  const { submitTrap, submitAnswer, submitVote, nextRound, leaveRoom, clearError } = useGameStore(
+  const { submitTrap, submitAnswer, submitVote, nextRound, leaveRoom, clearError, kickPlayer } = useGameStore(
     useShallow((s) => ({
+      kickPlayer: s.kickPlayer,
       submitTrap: s.submitTrap,
       submitAnswer: s.submitAnswer,
       submitVote: s.submitVote,
@@ -49,6 +52,16 @@ export function GameScreen({ navigation }: Props) {
   }, [state.snapshot?.roundNumber]);
 
   const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (state.kicked) {
+      showKickedAlert(() => {
+        leaveRoom();
+        navigation.popToTop();
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.kicked]);
 
   // Resync the countdown from the server whenever a fresh timed snapshot arrives —
   // the server is the source of truth for the deadline.
@@ -114,7 +127,17 @@ export function GameScreen({ navigation }: Props) {
         <IconButton icon="exit-to-app" onPress={confirmLeave} accessibilityLabel={t('game.leaveLabel')} />
       </View>
 
-      <ScoreBoard players={snapshot.players} />
+      <ScoreBoard
+        players={snapshot.players}
+        onRemove={
+          state.isHost
+            ? (player) => {
+                if (player.id !== playerId) confirmKick(player, () => kickPlayer(player.id));
+              }
+            : undefined
+        }
+        myId={playerId}
+      />
 
       {snapshot.fact && (
         <Card style={styles.factCard}>
@@ -254,12 +277,29 @@ export function GameScreen({ navigation }: Props) {
   );
 }
 
-function ScoreBoard({ players }: { players: PlayerScore[] }) {
+// For the host, every other player's chip gets a remove icon.
+function ScoreBoard({
+  players,
+  onRemove,
+  myId,
+}: {
+  players: PlayerScore[];
+  onRemove?: (player: PlayerScore) => void;
+  myId: string | null;
+}) {
+  const t = useT();
   if (players.length === 0) return null;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scoreboardScroll}>
       {players.map((player) => (
-        <Chip key={player.id} style={styles.scoreboardChip} icon={player.connected ? undefined : 'wifi-off'}>
+        <Chip
+          key={player.id}
+          style={styles.scoreboardChip}
+          icon={player.connected ? undefined : 'wifi-off'}
+          onClose={onRemove && player.id !== myId ? () => onRemove(player) : undefined}
+          closeIcon="account-remove"
+          closeIconAccessibilityLabel={t('lobby.removeLabel', { name: player.displayName })}
+        >
           {player.displayName}: {player.score}
         </Chip>
       ))}

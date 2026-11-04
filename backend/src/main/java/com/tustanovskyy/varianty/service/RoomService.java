@@ -43,6 +43,7 @@ public class RoomService {
 	private static final SecureRandom RANDOM = new SecureRandom();
 	private static final int ANSWER_TIMEOUT_SECONDS = 45;
 	private static final int VOTE_TIMEOUT_SECONDS = 30;
+	public static final String KICKED_MESSAGE = "Вас видалено з цієї кімнати";
 
 	private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
 	private final Map<String, String[]> sessionToRoomAndPlayer = new ConcurrentHashMap<>();
@@ -91,6 +92,9 @@ public class RoomService {
 	public RoomSnapshot join(String code, PlayerPrincipal player) {
 		GameRoom room = getRoomOrThrow(code);
 		synchronized (room) {
+			if (room.kickedPlayerIds.contains(player.playerId())) {
+				throw new ApiException(HttpStatus.FORBIDDEN, KICKED_MESSAGE);
+			}
 			if (!room.hostless && room.hostId.equals(player.playerId())) {
 				return snapshot(room);
 			}
@@ -190,8 +194,7 @@ public class RoomService {
 			}
 			room.currentRound.playerAnswers.put(playerId, requireNonBlank(text));
 
-			long connectedPlayers = room.players.values().stream().filter(p -> p.connected).count();
-			if (room.currentRound.playerAnswers.size() >= connectedPlayers) {
+			if (everyoneAnswered(room)) {
 				VotingStartedDto votingStarted = beginVoting(room);
 				return new AnswerResult(snapshot(room), votingStarted);
 			}
@@ -221,12 +224,53 @@ public class RoomService {
 			}
 			room.currentRound.votes.put(voterId, optionId);
 
-			long connectedPlayers = room.players.values().stream().filter(p -> p.connected).count();
-			if (room.currentRound.votes.size() >= connectedPlayers) {
+			if (everyoneVoted(room)) {
 				RoundResultDto result = resolveRound(room);
 				return new VoteResult(snapshot(room), result);
 			}
 			return new VoteResult(snapshot(room), null);
+		}
+	}
+
+	public record KickResult(RoomSnapshot snapshot, VotingStartedDto votingStarted, RoundResultDto roundResult) {
+	}
+
+	/**
+	 * Removes a player from the room for good. Works in every phase: the removed player's
+	 * answer and vote are dropped, and if everyone left has now answered/voted the round
+	 * moves on straight away instead of waiting for the timer.
+	 */
+	public KickResult kickPlayer(String code, String hostId, String playerId) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			requireHost(room, hostId);
+			if (hostId.equals(playerId)) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "Не можна видалити себе з кімнати");
+			}
+			requirePlayer(room, playerId);
+			room.players.remove(playerId);
+			room.kickedPlayerIds.add(playerId);
+			sessionToRoomAndPlayer.values().removeIf(ref -> ref[0].equals(code) && ref[1].equals(playerId));
+
+			VotingStartedDto votingStarted = null;
+			RoundResultDto roundResult = null;
+			RoundState round = room.currentRound;
+			if (round != null) {
+				// The answer stays as a voting option once voting has started (other clients
+				// already show it); before that it is simply dropped.
+				if (room.status == RoomStatus.ANSWERING) {
+					round.playerAnswers.remove(playerId);
+					if (everyoneAnswered(room)) {
+						votingStarted = beginVoting(room);
+					}
+				} else if (room.status == RoomStatus.VOTING) {
+					round.votes.remove(playerId);
+					if (everyoneVoted(room)) {
+						roundResult = resolveRound(room);
+					}
+				}
+			}
+			return new KickResult(snapshot(room), votingStarted, roundResult);
 		}
 	}
 
@@ -257,6 +301,20 @@ public class RoomService {
 	}
 
 	// --- internal state transitions (caller must hold the room monitor) ---
+
+	private boolean everyoneAnswered(GameRoom room) {
+		long answered = room.currentRound.playerAnswers.keySet().stream().filter(room.players::containsKey).count();
+		return answered >= connectedPlayers(room);
+	}
+
+	private boolean everyoneVoted(GameRoom room) {
+		long voted = room.currentRound.votes.keySet().stream().filter(room.players::containsKey).count();
+		return voted >= connectedPlayers(room);
+	}
+
+	private long connectedPlayers(GameRoom room) {
+		return room.players.values().stream().filter(p -> p.connected).count();
+	}
 
 	private void beginRound(GameRoom room) {
 		List<Question> pool = questionRepository.findByCategoryAndLanguage(room.category, room.language).stream()
@@ -346,7 +404,8 @@ public class RoomService {
 				deltas.merge(voterId, 2, Integer::sum);
 			} else if (AnswerOption.HOST_OWNER.equals(option.ownerId)) {
 				deltas.merge(voterId, -1, Integer::sum);
-			} else {
+			} else if (room.players.containsKey(option.ownerId)) {
+				// A removed player's lie can still fool people, but they get no points for it.
 				deltas.merge(option.ownerId, 1, Integer::sum);
 			}
 		}
@@ -364,7 +423,11 @@ public class RoomService {
 						authorLabel(room, o.ownerId),
 						AnswerOption.CORRECT_OWNER.equals(o.ownerId),
 						AnswerOption.HOST_OWNER.equals(o.ownerId),
-						votersByOption.get(o.id).stream().map(voterId -> room.players.get(voterId).displayName).toList()))
+						votersByOption.get(o.id).stream()
+								.map(room.players::get)
+								.filter(java.util.Objects::nonNull)
+								.map(p -> p.displayName)
+								.toList()))
 				.toList();
 
 		room.status = RoomStatus.RESULTS;
