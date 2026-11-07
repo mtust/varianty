@@ -64,6 +64,8 @@ export const uk = {
   'lobby.waitCreator': 'Очікуємо, поки організатор почне гру...',
   'lobby.waitHost': 'Очікуємо, поки ведучий почне гру...',
   'lobby.removeLabel': 'Видалити {name} з кімнати',
+  'lobby.copyCode': 'Скопіювати код кімнати',
+  'lobby.codeCopied': 'Код {code} скопійовано',
 
   'room.kicked': 'Ведучий видалив вас з кімнати',
   'room.kickTitle': 'Видалити гравця?',
@@ -212,6 +214,8 @@ export const en: Record<TranslationKey, string> = {
   'lobby.waitCreator': 'Waiting for the room creator to start the game...',
   'lobby.waitHost': 'Waiting for the host to start the game...',
   'lobby.removeLabel': 'Remove {name} from the room',
+  'lobby.copyCode': 'Copy room code',
+  'lobby.codeCopied': 'Code {code} copied',
 
   'room.kicked': 'You were removed from the room by the host',
   'room.kickTitle': 'Remove player?',

@@ -1,7 +1,8 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, IconButton, Snackbar, Text } from 'react-native-paper';
+import * as Clipboard from 'expo-clipboard';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Icon, IconButton, Snackbar, Text } from 'react-native-paper';
 
 import { confirmKick, showKickedAlert } from '@/components/confirmKick';
 
@@ -32,6 +33,7 @@ export function LobbyScreen({ route, navigation }: Props) {
     }))
   );
   const [starting, setStarting] = useState(false);
+  const [copied, setCopied] = useState(false);
   const advancingToGame = useRef(false);
 
   useEffect(() => {
@@ -85,9 +87,28 @@ export function LobbyScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text variant="displaySmall" style={styles.code}>
-        {snapshot.code}
-      </Text>
+      {isHost ? (
+        <Pressable
+          onPress={async () => {
+            await Clipboard.setStringAsync(snapshot.code);
+            setCopied(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('lobby.copyCode')}
+          style={({ pressed }) => [styles.codeRow, pressed && styles.codePressed]}
+        >
+          <Text variant="displaySmall" style={styles.code}>
+            {snapshot.code}
+          </Text>
+          <View style={styles.copyIcon}>
+            <Icon source="content-copy" size={22} color={theme.colors.primary} />
+          </View>
+        </Pressable>
+      ) : (
+        <Text variant="displaySmall" style={styles.code}>
+          {snapshot.code}
+        </Text>
+      )}
       <Text style={styles.hostLabel}>
         {t(snapshot.hostless ? 'lobby.creator' : 'lobby.host', { name: snapshot.hostDisplayName })}
       </Text>
@@ -142,6 +163,9 @@ export function LobbyScreen({ route, navigation }: Props) {
       <Snackbar visible={!!error} onDismiss={clearError} duration={4000}>
         {error}
       </Snackbar>
+      <Snackbar visible={copied && !error} onDismiss={() => setCopied(false)} duration={1500}>
+        {t('lobby.codeCopied', { code: snapshot.code })}
+      </Snackbar>
     </View>
   );
 }
@@ -151,6 +175,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { marginTop: 12 },
   code: { textAlign: 'center', letterSpacing: 8, fontWeight: '700', marginBottom: 4 },
+  codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  codePressed: { opacity: 0.6 },
+  copyIcon: { marginBottom: 4, marginLeft: 4 },
   hostLabel: { textAlign: 'center', opacity: 0.7, marginBottom: 24 },
   list: { flex: 1 },
   playerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 },
