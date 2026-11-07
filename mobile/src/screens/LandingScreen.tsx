@@ -1,15 +1,20 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 
 import { LanguageSwitch } from '@/components/LanguageSwitch';
-import { useT } from '@/i18n';
+import { RulesDialog } from '@/components/RulesDialog';
+import { useLanguageStore, useT } from '@/i18n';
+import { gameRules } from '@/i18n/rules';
 import { RootStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Landing'>;
 
 export function LandingScreen({ navigation }: Props) {
   const t = useT();
+  const language = useLanguageStore((state) => state.language);
+  const [rulesVisible, setRulesVisible] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -28,6 +33,11 @@ export function LandingScreen({ navigation }: Props) {
       <Button mode="outlined" style={styles.button} onPress={() => navigation.navigate('EmailAuth')}>
         {t('landing.signIn')}
       </Button>
+      <Button mode="text" icon="help-circle-outline" style={styles.button} onPress={() => setRulesVisible(true)}>
+        {gameRules[language].button}
+      </Button>
+
+      <RulesDialog visible={rulesVisible} onDismiss={() => setRulesVisible(false)} />
     </View>
   );
 }
