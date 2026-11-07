@@ -28,8 +28,9 @@ public class RoomResources {
 			@AuthenticationPrincipal PlayerPrincipal host,
 			@RequestParam(defaultValue = "false") boolean hostless,
 			@RequestParam(defaultValue = QuestionSeeder.CATEGORY_FACTS) String category,
-			@RequestParam(defaultValue = QuestionSeeder.LANGUAGE_UK) String language) {
-		return new RoomCreatedResponse(roomService.createRoom(host, hostless, category, language));
+			@RequestParam(defaultValue = QuestionSeeder.LANGUAGE_UK) String language,
+			@RequestParam(required = false) Integer rounds) {
+		return new RoomCreatedResponse(roomService.createRoom(host, hostless, category, language, rounds));
 	}
 
 	@GetMapping("/{code}/exists")

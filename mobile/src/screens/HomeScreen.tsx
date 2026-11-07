@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { Button, HelperText, SegmentedButtons, Text } from 'react-native-paper';
+import { Button, HelperText, IconButton, SegmentedButtons, Text } from 'react-native-paper';
 
 import { LanguageSwitch } from '@/components/LanguageSwitch';
 import { useLanguageStore, useT } from '@/i18n';
@@ -11,6 +11,10 @@ import { QuestionCategory, roomService } from '@/services/room.service';
 import { useAuthStore } from '@/stores/authStore';
 import { theme } from '@/theme/theme';
 import { useShallow } from 'zustand/react/shallow';
+
+const MIN_ROUNDS = 5;
+const MAX_ROUNDS = 20;
+const DEFAULT_ROUNDS = 6;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -25,6 +29,7 @@ export function HomeScreen({ navigation }: Props) {
     }))
   );
   const [category, setCategory] = useState<QuestionCategory>('facts');
+  const [rounds, setRounds] = useState(DEFAULT_ROUNDS);
   const [creating, setCreating] = useState<'host' | 'hostless' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -52,7 +57,7 @@ export function HomeScreen({ navigation }: Props) {
     setCreating(hostless ? 'hostless' : 'host');
     setError(null);
     try {
-      const { code } = await roomService.createRoom(hostless, category, language);
+      const { code } = await roomService.createRoom(hostless, category, language, rounds);
       navigation.navigate('Lobby', { code, isHost: true });
     } catch {
       setError(t('home.createFailed'));
@@ -78,6 +83,25 @@ export function HomeScreen({ navigation }: Props) {
           { value: 'quotes', label: t('home.quotes'), icon: 'chat-outline' },
         ]}
       />
+
+      <Text style={styles.roundsLabel}>{t('home.rounds')}</Text>
+      <View style={styles.stepper}>
+        <IconButton
+          icon="minus"
+          mode="contained-tonal"
+          disabled={rounds <= MIN_ROUNDS}
+          onPress={() => setRounds((r) => Math.max(MIN_ROUNDS, r - 1))}
+        />
+        <Text variant="titleLarge" style={styles.roundsValue}>
+          {rounds}
+        </Text>
+        <IconButton
+          icon="plus"
+          mode="contained-tonal"
+          disabled={rounds >= MAX_ROUNDS}
+          onPress={() => setRounds((r) => Math.min(MAX_ROUNDS, r + 1))}
+        />
+      </View>
 
       <Button
         mode="contained"
@@ -131,6 +155,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center' },
   greeting: { textAlign: 'center', marginBottom: 32 },
   categoryLabel: { textAlign: 'center', opacity: 0.7, marginBottom: 8 },
+  roundsLabel: { textAlign: 'center', opacity: 0.7, marginTop: 16 },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  roundsValue: { minWidth: 40, textAlign: 'center' },
   button: { marginTop: 12 },
   signOut: { marginTop: 32 },
 });

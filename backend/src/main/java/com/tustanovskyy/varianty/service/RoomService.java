@@ -43,6 +43,8 @@ public class RoomService {
 	private static final SecureRandom RANDOM = new SecureRandom();
 	private static final int ANSWER_TIMEOUT_SECONDS = 45;
 	private static final int VOTE_TIMEOUT_SECONDS = 30;
+	public static final int MIN_ROUNDS = 5;
+	public static final int MAX_ROUNDS = 20;
 	public static final String KICKED_MESSAGE = "Вас видалено з цієї кімнати";
 
 	private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
@@ -69,15 +71,23 @@ public class RoomService {
 		scheduler.shutdownNow();
 	}
 
-	public String createRoom(PlayerPrincipal host, boolean hostless, String category, String language) {
+	public String createRoom(PlayerPrincipal host, boolean hostless, String category, String language, Integer rounds) {
 		if (!QuestionSeeder.CATEGORY_FACTS.equals(category) && !QuestionSeeder.CATEGORY_QUOTES.equals(category)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома категорія питань");
 		}
 		if (!QuestionSeeder.LANGUAGE_UK.equals(language) && !QuestionSeeder.LANGUAGE_EN.equals(language)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома мова");
 		}
+		int requestedRounds = rounds != null ? rounds : roundsPerGame;
+		if (requestedRounds < MIN_ROUNDS || requestedRounds > MAX_ROUNDS) {
+			throw new ApiException(HttpStatus.BAD_REQUEST,
+					"Кількість раундів має бути від " + MIN_ROUNDS + " до " + MAX_ROUNDS);
+		}
+		// Never plan more rounds than there are distinct questions for this category/language.
+		int available = questionRepository.findByCategoryAndLanguage(category, language).size();
+		int totalRounds = Math.max(1, Math.min(requestedRounds, available));
 		String code = generateUniqueCode();
-		GameRoom room = new GameRoom(code, host.playerId(), host.displayName(), !host.guest(), roundsPerGame, hostless, category, language);
+		GameRoom room = new GameRoom(code, host.playerId(), host.displayName(), !host.guest(), totalRounds, hostless, category, language);
 		if (hostless) {
 			room.players.put(host.playerId(), new PlayerState(host.playerId(), host.displayName(), !host.guest()));
 		}

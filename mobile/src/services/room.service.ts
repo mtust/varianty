@@ -7,10 +7,11 @@ export const roomService = {
   async createRoom(
     hostless = false,
     category: QuestionCategory = 'facts',
-    language: Language = 'uk'
+    language: Language = 'uk',
+    rounds: number = 6
   ): Promise<{ code: string }> {
     const { data } = await apiClient.post<{ code: string }>('/api/rooms', null, {
-      params: { hostless, category, language },
+      params: { hostless, category, language, rounds },
     });
     return data;
   },
