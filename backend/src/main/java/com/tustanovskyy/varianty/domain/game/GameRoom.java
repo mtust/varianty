@@ -26,6 +26,8 @@ public class GameRoom {
 	public int roundNumber = 0;
 	public final int totalRounds;
 	public RoundState currentRound;
+	/** Result of the last resolved round, re-sent to players who reconnect during RESULTS. */
+	public com.tustanovskyy.varianty.domain.dto.room.RoundResultDto lastRoundResult;
 
 	/** Deadline for the current timed phase (ANSWERING/VOTING), or null when the phase isn't timed. */
 	public Instant phaseDeadline;

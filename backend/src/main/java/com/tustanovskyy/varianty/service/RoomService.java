@@ -125,14 +125,47 @@ public class RoomService {
 		sessionToRoomAndPlayer.put(sessionId, new String[] {code, playerId});
 	}
 
-	/** Returns the room code the disconnected session belonged to, or null if unknown. */
+	/**
+	 * Returns the room code the disconnected session belonged to, or null if nothing changed.
+	 * A player who came back from the background usually has a new session already (the old
+	 * socket's close is often noticed only later), so the player only goes offline when no
+	 * other session of theirs is still joined to the room.
+	 */
 	public String handleSessionDisconnect(String sessionId) {
 		String[] ref = sessionToRoomAndPlayer.remove(sessionId);
 		if (ref == null) {
 			return null;
 		}
+		boolean stillConnected = sessionToRoomAndPlayer.values().stream()
+				.anyMatch(other -> other[0].equals(ref[0]) && other[1].equals(ref[1]));
+		if (stillConnected) {
+			return null;
+		}
 		markDisconnected(ref[0], ref[1]);
 		return ref[0];
+	}
+
+	/** Private state a (re)joining player may have missed while their socket was down. */
+	public record CatchUp(HostQuestionDto hostQuestion, VotingStartedDto votingStarted, RoundResultDto roundResult) {
+	}
+
+	public CatchUp catchUp(String code, String playerId) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			RoundState round = room.currentRound;
+			if (round == null) {
+				return new CatchUp(null, null, null);
+			}
+			HostQuestionDto hostQuestion = !room.hostless && room.hostId.equals(playerId)
+					&& room.status != RoomStatus.LOBBY && room.status != RoomStatus.FINISHED
+					? new HostQuestionDto(round.question.getFact(), capitalize(round.question.getCorrectAnswer()))
+					: null;
+			VotingStartedDto voting = room.status == RoomStatus.VOTING
+					? new VotingStartedDto(round.options.stream().map(o -> new AnswerOptionDto(o.id, o.text)).toList())
+					: null;
+			RoundResultDto result = room.status == RoomStatus.RESULTS ? room.lastRoundResult : null;
+			return new CatchUp(hostQuestion, voting, result);
+		}
 	}
 
 	public void markDisconnected(String code, String playerId) {
@@ -442,7 +475,9 @@ public class RoomService {
 
 		room.status = RoomStatus.RESULTS;
 		boolean gameFinished = room.roundNumber >= room.totalRounds;
-		return new RoundResultDto(round.question.getFact(), revealed, deltas, scoreboard(room), gameFinished);
+		RoundResultDto resultDto = new RoundResultDto(round.question.getFact(), revealed, deltas, scoreboard(room), gameFinished);
+		room.lastRoundResult = resultDto;
+		return resultDto;
 	}
 
 	private String authorLabel(GameRoom room, String ownerId) {

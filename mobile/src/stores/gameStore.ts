@@ -88,23 +88,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
-  startGame: () => gameSocket.start(get().code!),
+  startGame: () => sendSafely(set, () => gameSocket.start(get().code!)),
 
-  submitTrap: (text) => gameSocket.submitTrap(get().code!, text),
+  submitTrap: (text) => sendSafely(set, () => gameSocket.submitTrap(get().code!, text)),
 
   submitAnswer: (text) => {
-    gameSocket.submitAnswer(get().code!, text);
-    set({ mySubmittedAnswer: true });
+    if (sendSafely(set, () => gameSocket.submitAnswer(get().code!, text))) {
+      set({ mySubmittedAnswer: true });
+    }
   },
 
   submitVote: (optionId) => {
-    gameSocket.submitVote(get().code!, optionId);
-    set({ myVoted: true, myVoteOptionId: optionId });
+    if (sendSafely(set, () => gameSocket.submitVote(get().code!, optionId))) {
+      set({ myVoted: true, myVoteOptionId: optionId });
+    }
   },
 
-  nextRound: () => gameSocket.nextRound(get().code!),
+  nextRound: () => sendSafely(set, () => gameSocket.nextRound(get().code!)),
 
-  kickPlayer: (playerId) => gameSocket.kickPlayer(get().code!, playerId),
+  kickPlayer: (playerId) => sendSafely(set, () => gameSocket.kickPlayer(get().code!, playerId)),
 
   leaveRoom: () => {
     gameSocket.disconnect();
@@ -125,3 +127,17 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+/**
+ * Runs a socket send; if the connection is down (it is being re-established in the
+ * background) shows the error instead of crashing, so the player can simply retry.
+ */
+function sendSafely(set: (partial: Partial<GameState>) => void, send: () => void): boolean {
+  try {
+    send();
+    return true;
+  } catch (e) {
+    set({ error: e instanceof Error ? e.message : translate('errors.connectRoom') });
+    return false;
+  }
+}

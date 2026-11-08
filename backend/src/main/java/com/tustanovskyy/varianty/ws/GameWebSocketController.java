@@ -34,6 +34,18 @@ public class GameWebSocketController {
 		roomService.trackSession(sessionId, code, principal.playerId());
 		RoomSnapshot snapshot = roomService.join(code, toPrincipal(principal));
 		broadcast(code, snapshot);
+		// A player returning from the background missed any one-off events sent while their
+		// socket was down, so replay the ones for the current phase privately.
+		RoomService.CatchUp catchUp = roomService.catchUp(code, principal.playerId());
+		if (catchUp.hostQuestion() != null) {
+			messagingTemplate.convertAndSendToUser(principal.playerId(), "/queue/host-question", catchUp.hostQuestion());
+		}
+		if (catchUp.votingStarted() != null) {
+			messagingTemplate.convertAndSendToUser(principal.playerId(), "/queue/voting", catchUp.votingStarted());
+		}
+		if (catchUp.roundResult() != null) {
+			messagingTemplate.convertAndSendToUser(principal.playerId(), "/queue/results", catchUp.roundResult());
+		}
 	}
 
 	@MessageMapping("/room/{code}/start")

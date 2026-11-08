@@ -1,4 +1,5 @@
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
+import { AppState, AppStateStatus, NativeEventSubscription } from 'react-native';
 
 import { localizeServerError, translate } from '@/i18n';
 import { WS_URL } from '@/services/api.service';
@@ -24,6 +25,9 @@ class GameSocketService {
   private client: Client | null = null;
   private subscriptions: StompSubscription[] = [];
   private joinArgs: { code: string; handlers: RoomHandlers } | null = null;
+  private appStateSub: NativeEventSubscription | null = null;
+  private backgroundedAt: number | null = null;
+  private reconnecting = false;
 
   connect(token: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -33,6 +37,10 @@ class GameSocketService {
         connectHeaders: { Authorization: `Bearer ${token}` },
         reconnectDelay: 3000,
         connectionTimeout: 10000,
+        // Heartbeats let us notice a socket the OS silently killed while the app was in
+        // the background, instead of sending into a dead connection.
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
         // React Native's WebSocket doesn't handle text frames the way stompjs expects by
         // default (incoming frames are silently dropped) — these two flags are the
         // documented workaround for RN.
@@ -43,6 +51,8 @@ class GameSocketService {
         debug: __DEV__ ? (str) => console.log('[STOMP]', str) : () => {},
         onConnect: () => {
           console.log('[STOMP] connected, session established');
+          // Subscriptions from a previous connection died with it.
+          this.subscriptions = [];
           if (this.joinArgs) {
             this.subscribeAndJoin(this.joinArgs.code, this.joinArgs.handlers);
           }
@@ -76,7 +86,47 @@ class GameSocketService {
       });
       this.client = client;
       client.activate();
+      this.watchAppState();
     });
+  }
+
+  /**
+   * When the app comes back from the background its socket is often dead without stompjs
+   * knowing yet, so the player would stay "offline" and their actions would be lost.
+   * Reconnect right away instead; onConnect then resubscribes and rejoins the room.
+   */
+  private watchAppState() {
+    if (this.appStateSub) return;
+    this.appStateSub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') {
+        if (this.backgroundedAt === null) this.backgroundedAt = Date.now();
+        return;
+      }
+      if (next !== 'active') return;
+      const awayMs = this.backgroundedAt === null ? 0 : Date.now() - this.backgroundedAt;
+      this.backgroundedAt = null;
+      const client = this.client;
+      if (!client) return;
+      if (!client.connected || awayMs > 2000) {
+        this.reconnect();
+      }
+    });
+  }
+
+  private reconnect() {
+    const client = this.client;
+    if (!client || this.reconnecting) return;
+    this.reconnecting = true;
+    client
+      .deactivate()
+      .catch(() => {})
+      .finally(() => {
+        this.reconnecting = false;
+        // Left the room (or got kicked) while we were tearing down — don't come back.
+        if (this.client === client) {
+          client.activate();
+        }
+      });
   }
 
   joinRoom(code: string, handlers: RoomHandlers) {
@@ -86,14 +136,27 @@ class GameSocketService {
 
   private subscribeAndJoin(code: string, handlers: RoomHandlers) {
     const client = this.requireClient();
+    if (!client.connected) {
+      // onConnect will subscribe and join once the connection is back.
+      return;
+    }
     const parse = <T>(message: IMessage): T => JSON.parse(message.body) as T;
 
-    this.subscriptions.forEach((sub) => sub.unsubscribe());
+    this.subscriptions.forEach((sub) => {
+      try {
+        sub.unsubscribe();
+      } catch {
+        // The connection these belonged to is already gone.
+      }
+    });
     this.subscriptions = [
       client.subscribe(`/topic/room/${code}`, (msg) => handlers.onSnapshot(parse<RoomSnapshot>(msg))),
       client.subscribe(`/topic/room/${code}/voting`, (msg) => handlers.onVotingStarted(parse<VotingStarted>(msg))),
       client.subscribe(`/topic/room/${code}/results`, (msg) => handlers.onRoundResult(parse<RoundResult>(msg))),
       client.subscribe('/user/queue/host-question', (msg) => handlers.onHostQuestion(parse<HostQuestion>(msg))),
+      // Replayed privately by the server when we (re)join mid-round.
+      client.subscribe('/user/queue/voting', (msg) => handlers.onVotingStarted(parse<VotingStarted>(msg))),
+      client.subscribe('/user/queue/results', (msg) => handlers.onRoundResult(parse<RoundResult>(msg))),
       client.subscribe('/user/queue/errors', (msg) => handlers.onError(parse<ServerError>(msg))),
       client.subscribe('/user/queue/kicked', (msg) => handlers.onKicked(parse<KickedNotice>(msg))),
     ];
@@ -102,35 +165,51 @@ class GameSocketService {
   }
 
   start(code: string) {
-    this.requireClient().publish({ destination: `/app/room/${code}/start`, body: '{}' });
+    this.send({ destination: `/app/room/${code}/start`, body: '{}' });
   }
 
   submitTrap(code: string, text: string) {
-    this.requireClient().publish({ destination: `/app/room/${code}/host-trap`, body: JSON.stringify({ text }) });
+    this.send({ destination: `/app/room/${code}/host-trap`, body: JSON.stringify({ text }) });
   }
 
   submitAnswer(code: string, text: string) {
-    this.requireClient().publish({ destination: `/app/room/${code}/answer`, body: JSON.stringify({ text }) });
+    this.send({ destination: `/app/room/${code}/answer`, body: JSON.stringify({ text }) });
   }
 
   submitVote(code: string, optionId: string) {
-    this.requireClient().publish({ destination: `/app/room/${code}/vote`, body: JSON.stringify({ optionId }) });
+    this.send({ destination: `/app/room/${code}/vote`, body: JSON.stringify({ optionId }) });
   }
 
   kickPlayer(code: string, playerId: string) {
-    this.requireClient().publish({ destination: `/app/room/${code}/kick`, body: JSON.stringify({ playerId }) });
+    this.send({ destination: `/app/room/${code}/kick`, body: JSON.stringify({ playerId }) });
   }
 
   nextRound(code: string) {
-    this.requireClient().publish({ destination: `/app/room/${code}/next-round`, body: '{}' });
+    this.send({ destination: `/app/room/${code}/next-round`, body: '{}' });
   }
 
   disconnect() {
-    this.subscriptions.forEach((sub) => sub.unsubscribe());
-    this.subscriptions = [];
-    this.joinArgs = null;
-    this.client?.deactivate();
+    const client = this.client;
     this.client = null;
+    this.joinArgs = null;
+    if (client?.connected) {
+      this.subscriptions.forEach((sub) => sub.unsubscribe());
+    }
+    this.subscriptions = [];
+    this.appStateSub?.remove();
+    this.appStateSub = null;
+    this.backgroundedAt = null;
+    client?.deactivate();
+  }
+
+  /** Publishes to the server, reconnecting first if the socket dropped (e.g. after backgrounding). */
+  private send(params: { destination: string; body: string }) {
+    const client = this.requireClient();
+    if (!client.connected) {
+      this.reconnect();
+      throw new Error(translate('errors.connectRoom'));
+    }
+    client.publish(params);
   }
 
   private requireClient(): Client {

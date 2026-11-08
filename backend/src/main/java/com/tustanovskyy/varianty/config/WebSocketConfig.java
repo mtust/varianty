@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -29,7 +30,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	@Override
 	public void configureMessageBroker(@NonNull MessageBrokerRegistry registry) {
-		registry.enableSimpleBroker("/topic", "/queue");
+		// Heartbeats let both sides notice a socket that died silently (e.g. the app was
+		// backgrounded and the OS dropped the connection), so presence stays accurate.
+		ThreadPoolTaskScheduler heartbeatScheduler = new ThreadPoolTaskScheduler();
+		heartbeatScheduler.setPoolSize(1);
+		heartbeatScheduler.setThreadNamePrefix("ws-heartbeat-");
+		heartbeatScheduler.initialize();
+		registry.enableSimpleBroker("/topic", "/queue")
+				.setHeartbeatValue(new long[] {10000, 10000})
+				.setTaskScheduler(heartbeatScheduler);
 		registry.setApplicationDestinationPrefixes("/app");
 		registry.setUserDestinationPrefix("/user");
 	}
