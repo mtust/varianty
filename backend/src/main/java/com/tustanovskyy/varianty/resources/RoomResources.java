@@ -1,8 +1,8 @@
 package com.tustanovskyy.varianty.resources;
 
 import com.tustanovskyy.varianty.domain.dto.room.RoomCreatedResponse;
+import com.tustanovskyy.varianty.domain.entity.Question;
 import com.tustanovskyy.varianty.security.PlayerPrincipal;
-import com.tustanovskyy.varianty.service.QuestionSeeder;
 import com.tustanovskyy.varianty.service.RoomService;
 import java.util.Map;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,8 +27,8 @@ public class RoomResources {
 	public RoomCreatedResponse createRoom(
 			@AuthenticationPrincipal PlayerPrincipal host,
 			@RequestParam(defaultValue = "false") boolean hostless,
-			@RequestParam(defaultValue = QuestionSeeder.CATEGORY_FACTS) String category,
-			@RequestParam(defaultValue = QuestionSeeder.LANGUAGE_UK) String language,
+			@RequestParam(defaultValue = Question.CATEGORY_FACTS) String category,
+			@RequestParam(defaultValue = Question.LANGUAGE_UK) String language,
 			@RequestParam(required = false) Integer rounds) {
 		return new RoomCreatedResponse(roomService.createRoom(host, hostless, category, language, rounds));
 	}

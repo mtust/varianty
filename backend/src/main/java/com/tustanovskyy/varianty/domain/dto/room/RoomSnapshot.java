@@ -13,5 +13,6 @@ public record RoomSnapshot(
 		List<PlayerScoreDto> players,
 		int answeredCount,
 		int votedCount,
-		int secondsRemaining) {
+		int secondsRemaining,
+		String category) {
 }

@@ -7,14 +7,10 @@ import { LanguageSwitch } from '@/components/LanguageSwitch';
 import { useLanguageStore, useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { authService } from '@/services/auth.service';
-import { QuestionCategory, roomService } from '@/services/room.service';
+import { DEFAULT_ROUNDS, MAX_ROUNDS, MIN_ROUNDS, QuestionCategory, roomService } from '@/services/room.service';
 import { useAuthStore } from '@/stores/authStore';
 import { theme } from '@/theme/theme';
 import { useShallow } from 'zustand/react/shallow';
-
-const MIN_ROUNDS = 5;
-const MAX_ROUNDS = 20;
-const DEFAULT_ROUNDS = 6;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 

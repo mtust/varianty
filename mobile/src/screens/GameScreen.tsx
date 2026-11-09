@@ -1,15 +1,27 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, Card, Chip, Icon, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
+import {
+  ActivityIndicator,
+  Button,
+  Card,
+  Chip,
+  Icon,
+  IconButton,
+  SegmentedButtons,
+  Snackbar,
+  Text,
+  TextInput,
+} from 'react-native-paper';
 
 import { confirmKick, showKickedAlert } from '@/components/confirmKick';
 import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/stores/authStore';
+import { MAX_ROUNDS, MIN_ROUNDS, QuestionCategory } from '@/services/room.service';
 import { useGameStore } from '@/stores/gameStore';
 import { colors, theme } from '@/theme/theme';
-import { PlayerScore, RevealedOption } from '@/types/game';
+import { NewGameSettings, PlayerScore, RevealedOption, RoomSnapshot } from '@/types/game';
 import { useShallow } from 'zustand/react/shallow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
@@ -31,13 +43,14 @@ export function GameScreen({ navigation }: Props) {
       kicked: s.kicked,
     }))
   );
-  const { submitTrap, submitAnswer, submitVote, nextRound, leaveRoom, clearError, kickPlayer } = useGameStore(
+  const { submitTrap, submitAnswer, submitVote, nextRound, startNewGame, leaveRoom, clearError, kickPlayer } = useGameStore(
     useShallow((s) => ({
       kickPlayer: s.kickPlayer,
       submitTrap: s.submitTrap,
       submitAnswer: s.submitAnswer,
       submitVote: s.submitVote,
       nextRound: s.nextRound,
+      startNewGame: s.startNewGame,
       leaveRoom: s.leaveRoom,
       clearError: s.clearError,
     }))
@@ -264,7 +277,21 @@ export function GameScreen({ navigation }: Props) {
               <Text style={styles.scoreDelta}>{player.score}</Text>
             </View>
           ))}
-          <Button mode="contained" style={styles.action} onPress={goHome}>
+          {state.isHost ? (
+            <NewGamePanel snapshot={snapshot} onStart={startNewGame} />
+          ) : (
+            <View style={styles.banner} accessibilityLiveRegion="polite">
+              <Icon source="clock-outline" size={24} color={theme.colors.secondary} />
+              <Text variant="bodyMedium" style={styles.bannerText}>
+                {t('newGame.waiting', {
+                  who: snapshot.hostless
+                    ? snapshot.hostDisplayName
+                    : t('banner.hostName', { name: snapshot.hostDisplayName }),
+                })}
+              </Text>
+            </View>
+          )}
+          <Button mode={state.isHost ? 'text' : 'contained'} style={styles.action} onPress={goHome}>
             {t('game.home')}
           </Button>
         </View>
@@ -304,6 +331,94 @@ function ScoreBoard({
         </Chip>
       ))}
     </ScrollView>
+  );
+}
+
+// After the last round the host can play again with the same players: carry the scores over
+// or start from zero, and pick another category or number of rounds.
+function NewGamePanel({
+  snapshot,
+  onStart,
+}: {
+  snapshot: RoomSnapshot;
+  onStart: (settings: NewGameSettings) => void;
+}) {
+  const t = useT();
+  const [category, setCategory] = useState<QuestionCategory>(snapshot.category ?? 'facts');
+  const [rounds, setRounds] = useState(
+    Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, snapshot.totalRounds || MIN_ROUNDS))
+  );
+  const [sent, setSent] = useState<'keep' | 'reset' | null>(null);
+  const enoughPlayers = snapshot.players.length >= 2;
+
+  // If the server rejects the request (e.g. not enough players) let the host try again.
+  useEffect(() => {
+    if (!sent) return;
+    const id = setTimeout(() => setSent(null), 5000);
+    return () => clearTimeout(id);
+  }, [sent]);
+
+  const start = (keepScores: boolean) => {
+    setSent(keepScores ? 'keep' : 'reset');
+    onStart({ keepScores, category, rounds });
+  };
+
+  return (
+    <Card style={styles.newGameCard}>
+      <Card.Content>
+        <Text variant="titleMedium" style={styles.newGameTitle}>
+          {t('newGame.title')}
+        </Text>
+        <Text style={styles.newGameLabel}>{t('home.category')}</Text>
+        <SegmentedButtons
+          value={category}
+          onValueChange={(value) => setCategory(value as QuestionCategory)}
+          buttons={[
+            { value: 'facts', label: t('home.facts'), icon: 'lightbulb-outline' },
+            { value: 'quotes', label: t('home.quotes'), icon: 'chat-outline' },
+          ]}
+        />
+        <Text style={[styles.newGameLabel, styles.newGameRoundsLabel]}>{t('home.rounds')}</Text>
+        <View style={styles.stepper}>
+          <IconButton
+            icon="minus"
+            mode="contained-tonal"
+            disabled={rounds <= MIN_ROUNDS}
+            onPress={() => setRounds((r) => Math.max(MIN_ROUNDS, r - 1))}
+          />
+          <Text variant="titleLarge" style={styles.roundsValue}>
+            {rounds}
+          </Text>
+          <IconButton
+            icon="plus"
+            mode="contained-tonal"
+            disabled={rounds >= MAX_ROUNDS}
+            onPress={() => setRounds((r) => Math.min(MAX_ROUNDS, r + 1))}
+          />
+        </View>
+        <Button
+          mode="contained"
+          icon="plus-circle-outline"
+          style={styles.action}
+          loading={sent === 'keep'}
+          disabled={!!sent || !enoughPlayers}
+          onPress={() => start(true)}
+        >
+          {t('newGame.keepScores')}
+        </Button>
+        <Button
+          mode="contained-tonal"
+          icon="restart"
+          style={styles.newGameSecondary}
+          loading={sent === 'reset'}
+          disabled={!!sent || !enoughPlayers}
+          onPress={() => start(false)}
+        >
+          {t('newGame.resetScores')}
+        </Button>
+        {!enoughPlayers && <Text style={styles.newGameHint}>{t('lobby.needTwo')}</Text>}
+      </Card.Content>
+    </Card>
   );
 }
 
@@ -483,4 +598,12 @@ const styles = StyleSheet.create({
   myScoreRow: { backgroundColor: colors.highlightSoft, borderRadius: 8 },
   scoreDelta: { fontWeight: '600' },
   finishedTitle: { textAlign: 'center', marginBottom: 20 },
+  newGameCard: { marginTop: 24 },
+  newGameTitle: { textAlign: 'center', marginBottom: 12, fontWeight: '700' },
+  newGameLabel: { textAlign: 'center', opacity: 0.7, marginBottom: 8 },
+  newGameRoundsLabel: { marginTop: 16, marginBottom: 0 },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  roundsValue: { minWidth: 40, textAlign: 'center' },
+  newGameSecondary: { marginTop: 10 },
+  newGameHint: { textAlign: 'center', marginTop: 8, opacity: 0.7 },
 });

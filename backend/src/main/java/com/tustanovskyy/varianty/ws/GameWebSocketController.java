@@ -4,6 +4,7 @@ import com.tustanovskyy.varianty.domain.dto.room.AnswerPayload;
 import com.tustanovskyy.varianty.domain.dto.room.ErrorDto;
 import com.tustanovskyy.varianty.domain.dto.room.KickPayload;
 import com.tustanovskyy.varianty.domain.dto.room.KickedDto;
+import com.tustanovskyy.varianty.domain.dto.room.NewGamePayload;
 import com.tustanovskyy.varianty.domain.dto.room.RoomSnapshot;
 import com.tustanovskyy.varianty.domain.dto.room.TrapPayload;
 import com.tustanovskyy.varianty.domain.dto.room.VotePayload;
@@ -87,6 +88,17 @@ public class GameWebSocketController {
 		RoomService.NextRoundResult result = roomService.nextRound(code, principal.playerId());
 		broadcast(code, result.snapshot());
 		if (!result.finished() && result.snapshot().status().equals("TRAP")) {
+			messagingTemplate.convertAndSendToUser(
+					principal.playerId(), "/queue/host-question", roomService.currentHostQuestion(code, principal.playerId()));
+		}
+	}
+
+	@MessageMapping("/room/{code}/new-game")
+	public void newGame(@DestinationVariable String code, StompPrincipal principal, @Payload NewGamePayload payload) {
+		RoomSnapshot snapshot = roomService.startNewGame(
+				code, principal.playerId(), payload.keepScores(), payload.category(), payload.rounds());
+		broadcast(code, snapshot);
+		if (!snapshot.hostless()) {
 			messagingTemplate.convertAndSendToUser(
 					principal.playerId(), "/queue/host-question", roomService.currentHostQuestion(code, principal.playerId()));
 		}

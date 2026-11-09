@@ -97,6 +97,11 @@ export const uk = {
   'game.finish': 'Завершити гру',
   'game.nextRound': 'Наступний раунд',
 
+  'newGame.title': 'Зіграти ще раз у цій кімнаті',
+  'newGame.keepScores': 'Нова гра, рахунок продовжується',
+  'newGame.resetScores': 'Нова гра з нуля',
+  'newGame.waiting': 'Можливо, {who} почне нову гру в цій кімнаті. Зачекайте або поверніться на головну',
+
   'banner.host': 'Усі чекають на вас. Перегляньте результати й натисніть «{button}» унизу',
   'banner.hostName': 'ведучий {name}',
   'banner.waitNext': 'Раунд завершено. Чекаємо, поки {who} почне наступний раунд',
@@ -143,6 +148,7 @@ export const uk = {
   'errors.invalidLogin': 'Неправильний email або пароль',
   'errors.kickedFromRoom': 'Вас видалено з цієї кімнати',
   'errors.cannotKickSelf': 'Не можна видалити себе з кімнати',
+  'errors.gameNotFinished': 'Гра ще не завершилась',
 };
 
 export type TranslationKey = keyof typeof uk;
@@ -247,6 +253,11 @@ export const en: Record<TranslationKey, string> = {
   'game.finish': 'Finish game',
   'game.nextRound': 'Next round',
 
+  'newGame.title': 'Play again in this room',
+  'newGame.keepScores': 'New game, keep the score',
+  'newGame.resetScores': 'New game from zero',
+  'newGame.waiting': '{who} may start a new game in this room. Wait here or go back home',
+
   'banner.host': 'Everyone is waiting for you. Check the results and tap "{button}" below',
   'banner.hostName': 'host {name}',
   'banner.waitNext': 'Round over. Waiting for {who} to start the next round',
@@ -293,6 +304,7 @@ export const en: Record<TranslationKey, string> = {
   'errors.invalidLogin': 'Wrong email or password',
   'errors.kickedFromRoom': 'You were removed from this room',
   'errors.cannotKickSelf': "You can't remove yourself from the room",
+  'errors.gameNotFinished': "The game isn't over yet",
 };
 
 // The server sends fixed Ukrainian or English messages; they're mapped here so they show in
@@ -323,4 +335,5 @@ export const serverErrors: Record<string, TranslationKey> = {
   'Invalid email or password': 'errors.invalidLogin',
   'Вас видалено з цієї кімнати': 'errors.kickedFromRoom',
   'Не можна видалити себе з кімнати': 'errors.cannotKickSelf',
+  'Гра ще не завершилась': 'errors.gameNotFinished',
 };

@@ -8,5 +8,5 @@ public interface QuestionRepository extends JpaRepository<Question, String> {
 
 	List<Question> findByCategoryAndLanguage(String category, String language);
 
-	List<Question> findByLanguage(String language);
+	long countByLanguage(String language);
 }

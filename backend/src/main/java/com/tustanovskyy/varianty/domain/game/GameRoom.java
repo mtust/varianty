@@ -13,7 +13,8 @@ public class GameRoom {
 	public final String hostDisplayName;
 	public final boolean hostRegistered;
 	public final boolean hostless;
-	public final String category;
+	/** Can change between games when the host starts a new game in the same room. */
+	public String category;
 	public final String language;
 	public final Instant createdAt = Instant.now();
 
@@ -24,7 +25,7 @@ public class GameRoom {
 
 	public RoomStatus status = RoomStatus.LOBBY;
 	public int roundNumber = 0;
-	public final int totalRounds;
+	public int totalRounds;
 	public RoundState currentRound;
 	/** Result of the last resolved round, re-sent to players who reconnect during RESULTS. */
 	public com.tustanovskyy.varianty.domain.dto.room.RoundResultDto lastRoundResult;

@@ -19,6 +19,12 @@ import lombok.NoArgsConstructor;
 @Table(name = "questions")
 public class Question {
 
+	// Allowed values of category and language; the questions themselves live in Flyway migrations.
+	public static final String CATEGORY_FACTS = "facts";
+	public static final String CATEGORY_QUOTES = "quotes";
+	public static final String LANGUAGE_UK = "uk";
+	public static final String LANGUAGE_EN = "en";
+
 	@Id
 	private String id;
 

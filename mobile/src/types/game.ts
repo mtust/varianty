@@ -19,6 +19,14 @@ export interface RoomSnapshot {
   answeredCount: number;
   votedCount: number;
   secondsRemaining: number;
+  category: 'facts' | 'quotes';
+}
+
+/** Host's choices for another game in the same room. */
+export interface NewGameSettings {
+  keepScores: boolean;
+  category: 'facts' | 'quotes';
+  rounds: number;
 }
 
 export interface HostQuestion {

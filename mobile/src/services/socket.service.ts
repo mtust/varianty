@@ -6,6 +6,7 @@ import { WS_URL } from '@/services/api.service';
 import {
   HostQuestion,
   KickedNotice,
+  NewGameSettings,
   RoomSnapshot,
   RoundResult,
   ServerError,
@@ -182,6 +183,10 @@ class GameSocketService {
 
   kickPlayer(code: string, playerId: string) {
     this.send({ destination: `/app/room/${code}/kick`, body: JSON.stringify({ playerId }) });
+  }
+
+  startNewGame(code: string, settings: NewGameSettings) {
+    this.send({ destination: `/app/room/${code}/new-game`, body: JSON.stringify(settings) });
   }
 
   nextRound(code: string) {

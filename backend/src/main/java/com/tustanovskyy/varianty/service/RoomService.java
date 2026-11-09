@@ -72,17 +72,12 @@ public class RoomService {
 	}
 
 	public String createRoom(PlayerPrincipal host, boolean hostless, String category, String language, Integer rounds) {
-		if (!QuestionSeeder.CATEGORY_FACTS.equals(category) && !QuestionSeeder.CATEGORY_QUOTES.equals(category)) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома категорія питань");
-		}
-		if (!QuestionSeeder.LANGUAGE_UK.equals(language) && !QuestionSeeder.LANGUAGE_EN.equals(language)) {
+		requireKnownCategory(category);
+		if (!Question.LANGUAGE_UK.equals(language) && !Question.LANGUAGE_EN.equals(language)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома мова");
 		}
 		int requestedRounds = rounds != null ? rounds : roundsPerGame;
-		if (requestedRounds < MIN_ROUNDS || requestedRounds > MAX_ROUNDS) {
-			throw new ApiException(HttpStatus.BAD_REQUEST,
-					"Кількість раундів має бути від " + MIN_ROUNDS + " до " + MAX_ROUNDS);
-		}
+		requireRoundsInRange(requestedRounds);
 		// Never plan more rounds than there are distinct questions for this category/language.
 		int available = questionRepository.findByCategoryAndLanguage(category, language).size();
 		int totalRounds = Math.max(1, Math.min(requestedRounds, available));
@@ -108,7 +103,9 @@ public class RoomService {
 			if (!room.hostless && room.hostId.equals(player.playerId())) {
 				return snapshot(room);
 			}
-			if (room.status != RoomStatus.LOBBY && !room.players.containsKey(player.playerId())) {
+			// Newcomers may also join between games, so they can play the next one in this room.
+			boolean joinable = room.status == RoomStatus.LOBBY || room.status == RoomStatus.FINISHED;
+			if (!joinable && !room.players.containsKey(player.playerId())) {
 				throw new ApiException(HttpStatus.CONFLICT, "Гра вже почалась");
 			}
 			PlayerState existing = room.players.get(player.playerId());
@@ -336,6 +333,50 @@ public class RoomService {
 		}
 	}
 
+	/**
+	 * Starts another game in the same room once the previous one has finished: same players,
+	 * scores carried over or reset to zero, and optionally another category / round count.
+	 * Questions already asked in this room are not repeated while there are enough fresh ones.
+	 */
+	public RoomSnapshot startNewGame(String code, String hostId, boolean keepScores, String category, Integer rounds) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			requireHost(room, hostId);
+			if (room.status != RoomStatus.FINISHED) {
+				throw new ApiException(HttpStatus.CONFLICT, "Гра ще не завершилась");
+			}
+			String newCategory = category != null ? category : room.category;
+			requireKnownCategory(newCategory);
+			int requestedRounds = rounds != null ? rounds : room.totalRounds;
+			requireRoundsInRange(requestedRounds);
+			if (room.players.size() < 2) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "Потрібно щонайменше 2 гравці");
+			}
+
+			List<Question> all = questionRepository.findByCategoryAndLanguage(newCategory, room.language);
+			if (all.isEmpty()) {
+				throw new ApiException(HttpStatus.CONFLICT, "Питання закінчились, недостатньо фактів у базі");
+			}
+			long fresh = all.stream().filter(q -> !room.usedQuestionIds.contains(q.getId())).count();
+			if (fresh < requestedRounds) {
+				// Not enough unseen questions for a full game: allow repeats rather than a short game.
+				room.usedQuestionIds.clear();
+			}
+
+			cancelPhaseTimeout(room);
+			room.category = newCategory;
+			room.totalRounds = Math.max(1, Math.min(requestedRounds, all.size()));
+			room.roundNumber = 0;
+			room.currentRound = null;
+			room.lastRoundResult = null;
+			if (!keepScores) {
+				room.players.values().forEach(p -> p.score = 0);
+			}
+			beginRound(room);
+			return snapshot(room);
+		}
+	}
+
 	public RoomSnapshot publicSnapshot(String code) {
 		GameRoom room = getRoomOrThrow(code);
 		synchronized (room) {
@@ -526,7 +567,8 @@ public class RoomService {
 				scoreboard(room),
 				answered,
 				voted,
-				secondsRemaining(room));
+				secondsRemaining(room),
+				room.category);
 	}
 
 	private int secondsRemaining(GameRoom room) {
@@ -541,6 +583,19 @@ public class RoomService {
 				.sorted(Comparator.comparingInt((PlayerState p) -> p.score).reversed())
 				.map(p -> new PlayerScoreDto(p.id, p.displayName, p.score, p.connected))
 				.toList();
+	}
+
+	private static void requireKnownCategory(String category) {
+		if (!Question.CATEGORY_FACTS.equals(category) && !Question.CATEGORY_QUOTES.equals(category)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома категорія питань");
+		}
+	}
+
+	private static void requireRoundsInRange(int rounds) {
+		if (rounds < MIN_ROUNDS || rounds > MAX_ROUNDS) {
+			throw new ApiException(HttpStatus.BAD_REQUEST,
+					"Кількість раундів має бути від " + MIN_ROUNDS + " до " + MAX_ROUNDS);
+		}
 	}
 
 	private void requireHost(GameRoom room, String playerId) {

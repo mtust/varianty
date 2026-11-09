@@ -3,6 +3,10 @@ import { apiClient } from '@/services/api.service';
 
 export type QuestionCategory = 'facts' | 'quotes';
 
+export const MIN_ROUNDS = 5;
+export const MAX_ROUNDS = 20;
+export const DEFAULT_ROUNDS = 6;
+
 export const roomService = {
   async createRoom(
     hostless = false,

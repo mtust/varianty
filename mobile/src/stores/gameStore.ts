@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import { localizeServerError, translate } from '@/i18n';
 import { gameSocket } from '@/services/socket.service';
-import { HostQuestion, RoomSnapshot, RoundResult, VotingStarted } from '@/types/game';
+import { HostQuestion, NewGameSettings, RoomSnapshot, RoundResult, VotingStarted } from '@/types/game';
 
 interface GameState {
   code: string | null;
@@ -24,6 +24,7 @@ interface GameState {
   submitAnswer: (text: string) => void;
   submitVote: (optionId: string) => void;
   nextRound: () => void;
+  startNewGame: (settings: NewGameSettings) => void;
   kickPlayer: (playerId: string) => void;
   leaveRoom: () => void;
   clearError: () => void;
@@ -50,7 +51,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         const previous = get().snapshot;
         // A hostless room skips the TRAP phase and goes straight to ANSWERING, so
         // detect a fresh round by roundNumber rather than by status.
-        const newRound = !previous || previous.roundNumber !== snapshot.roundNumber;
+        // A new game in the same room may start again at a round number the last game also had.
+        const newRound =
+          !previous || previous.roundNumber !== snapshot.roundNumber || previous.status === 'FINISHED';
         set({
           snapshot,
           ...(newRound
@@ -105,6 +108,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   nextRound: () => sendSafely(set, () => gameSocket.nextRound(get().code!)),
+
+  startNewGame: (settings) => sendSafely(set, () => gameSocket.startNewGame(get().code!, settings)),
 
   kickPlayer: (playerId) => sendSafely(set, () => gameSocket.kickPlayer(get().code!, playerId)),
 
