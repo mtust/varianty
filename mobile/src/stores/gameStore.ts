@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { localizeServerError, translate } from '@/i18n';
 import { gameSocket } from '@/services/socket.service';
+import { useAuthStore } from '@/stores/authStore';
 import { CustomQuestion, HostQuestion, NewGameSettings, RoomSnapshot, RoundResult, VotingStarted } from '@/types/game';
 
 interface GameState {
@@ -157,3 +158,11 @@ function sendSafely(set: (partial: Partial<GameState>) => void, send: () => void
     return false;
   }
 }
+
+// Signing out (manually or because the session expired) leaves any room, so the socket
+// doesn't keep reconnecting with a dead token after the app returns to the start screen.
+useAuthStore.subscribe((state, previous) => {
+  if (previous.token && !state.token) {
+    useGameStore.getState().leaveRoom();
+  }
+});

@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useLanguageStore } from '@/i18n';
 import { AppNavigator } from '@/navigation/AppNavigator';
+import { startSessionRefresh } from '@/services/session.service';
 import { useAuthStore } from '@/stores/authStore';
 import { theme } from '@/theme/theme';
 
@@ -20,6 +21,13 @@ export default function App() {
       useLanguageStore.getState().hydrate();
     }
   }, [started, hydrate]);
+
+  // Once the stored session is loaded, keep registered players' tokens fresh (sliding expiry).
+  useEffect(() => {
+    if (hydrated) {
+      return startSessionRefresh();
+    }
+  }, [hydrated]);
 
   if (!hydrated) {
     return (

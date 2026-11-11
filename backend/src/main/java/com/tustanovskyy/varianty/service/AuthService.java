@@ -65,6 +65,19 @@ public class AuthService {
 		return issue(guestId, request.displayName().trim(), true);
 	}
 
+	/**
+	 * Issues a fresh token for a registered player whose current token is still valid, so active
+	 * players never get logged out (sliding expiry). Guests keep a hard lifetime and can't refresh.
+	 */
+	public AuthResponse refresh(PlayerPrincipal principal) {
+		if (principal.guest()) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "Guest sessions can't be refreshed");
+		}
+		User user = userRepository.findById(principal.playerId())
+				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Account no longer exists"));
+		return issue(user.getId(), user.getDisplayName(), false);
+	}
+
 	/** Permanently deletes the user's game history and account. Guests have no stored data, so this is a no-op for them. */
 	@Transactional
 	public void deleteAccount(PlayerPrincipal principal) {

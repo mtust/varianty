@@ -40,6 +40,11 @@ public class AuthResources {
 		return authService.guest(request);
 	}
 
+	@PostMapping("/refresh")
+	public AuthResponse refresh(@AuthenticationPrincipal PlayerPrincipal principal) {
+		return authService.refresh(principal);
+	}
+
 	@DeleteMapping("/me")
 	public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal PlayerPrincipal principal) {
 		authService.deleteAccount(principal);

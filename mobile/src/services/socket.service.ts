@@ -3,6 +3,8 @@ import { AppState, AppStateStatus, NativeEventSubscription } from 'react-native'
 
 import { localizeServerError, translate } from '@/i18n';
 import { WS_URL } from '@/services/api.service';
+import { isTokenExpired } from '@/services/jwt';
+import { useAuthStore } from '@/stores/authStore';
 import {
   CustomQuestion,
   HostQuestion,
@@ -33,6 +35,11 @@ class GameSocketService {
   private reconnecting = false;
 
   connect(token: string): Promise<void> {
+    if (isTokenExpired(token)) {
+      // Signing out swaps the navigator to the start screen; the room is left from the game store.
+      useAuthStore.getState().signOut();
+      return Promise.reject(new Error(translate('errors.connectRoom')));
+    }
     return new Promise((resolve, reject) => {
       let settled = false;
       const client = new Client({
@@ -52,6 +59,14 @@ class GameSocketService {
         // Must stay a function: stompjs calls it unconditionally, so `undefined` throws
         // inside activate() and the socket is never opened.
         debug: __DEV__ ? (str) => console.log('[STOMP]', str) : () => {},
+        // Runs before every (re)connect: a session that expired mid-game ends here instead of
+        // retrying a CONNECT the server will keep rejecting.
+        beforeConnect: async () => {
+          const current = useAuthStore.getState().token;
+          if (!current || isTokenExpired(current)) {
+            await useAuthStore.getState().signOut();
+          }
+        },
         onConnect: () => {
           console.log('[STOMP] connected, session established');
           // Subscriptions from a previous connection died with it.

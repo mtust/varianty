@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
+import { isTokenExpired } from '@/services/jwt';
+
 const STORAGE_KEY = 'varianty.auth';
 
 interface AuthState {
@@ -26,7 +28,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        set({ ...parsed, hydrated: true });
+        if (typeof parsed?.token === 'string' && isTokenExpired(parsed.token)) {
+          // Session expired while the app was closed: drop it so the start screen shows.
+          await AsyncStorage.removeItem(STORAGE_KEY);
+          set({ hydrated: true });
+        } else {
+          set({ ...parsed, hydrated: true });
+        }
       } else {
         set({ hydrated: true });
       }

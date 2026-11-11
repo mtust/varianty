@@ -18,7 +18,9 @@ spring:
 varianty:
   jwt:
     secret: ${JWT_SECRET:dev-only-secret-change-me-please-32bytes-min}
-    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+    # Registered (email) accounts: 30 days. Guests: 24 hours.
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:43200}
+    guest-expiration-minutes: ${JWT_GUEST_EXPIRATION_MINUTES:1440}
   game:
     rounds-per-game: ${ROUNDS_PER_GAME:6}
 

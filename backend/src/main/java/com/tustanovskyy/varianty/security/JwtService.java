@@ -15,23 +15,29 @@ import org.springframework.stereotype.Service;
 public class JwtService {
 
 	private final Key signingKey;
+	/** Lifetime of tokens for registered (email) accounts. */
 	private final long expirationMinutes;
+	/** Lifetime of guest tokens; a guest can't log back in, so this stays short. */
+	private final long guestExpirationMinutes;
 
 	public JwtService(
 			@Value("${varianty.jwt.secret}") String secret,
-			@Value("${varianty.jwt.expiration-minutes}") long expirationMinutes) {
+			@Value("${varianty.jwt.expiration-minutes}") long expirationMinutes,
+			@Value("${varianty.jwt.guest-expiration-minutes}") long guestExpirationMinutes) {
 		this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 		this.expirationMinutes = expirationMinutes;
+		this.guestExpirationMinutes = guestExpirationMinutes;
 	}
 
 	public String issueToken(String playerId, String displayName, boolean guest) {
 		Instant now = Instant.now();
+		long lifetimeMinutes = guest ? guestExpirationMinutes : expirationMinutes;
 		return Jwts.builder()
 				.subject(playerId)
 				.claim("displayName", displayName)
 				.claim("guest", guest)
 				.issuedAt(Date.from(now))
-				.expiration(Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))
+				.expiration(Date.from(now.plus(lifetimeMinutes, ChronoUnit.MINUTES)))
 				.signWith(signingKey)
 				.compact();
 	}
