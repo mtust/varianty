@@ -1,8 +1,11 @@
 package com.tustanovskyy.varianty.domain.game;
 
+import com.tustanovskyy.varianty.domain.entity.Question;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 
@@ -22,6 +25,11 @@ public class GameRoom {
 	public final Set<String> usedQuestionIds = new HashSet<>();
 	/** Players the host removed; they can't join this room again. */
 	public final Set<String> kickedPlayerIds = new HashSet<>();
+	/**
+	 * Questions the host wrote themselves, in the order they were added. They are asked before
+	 * any built-in question and removed from this list once asked, so it only holds pending ones.
+	 */
+	public final List<Question> customQuestions = new ArrayList<>();
 
 	public RoomStatus status = RoomStatus.LOBBY;
 	public int roundNumber = 0;

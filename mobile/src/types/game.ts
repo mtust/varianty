@@ -20,6 +20,15 @@ export interface RoomSnapshot {
   votedCount: number;
   secondsRemaining: number;
   category: 'facts' | 'quotes';
+  /** Host's own questions still to be asked; missing on servers without custom questions. */
+  customQuestionCount?: number;
+}
+
+/** A question the host wrote; only the host receives these. */
+export interface CustomQuestion {
+  id: string;
+  fact: string;
+  answer: string;
 }
 
 /** Host's choices for another game in the same room. */

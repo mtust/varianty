@@ -6,5 +6,6 @@ export type RootStackParamList = {
   JoinRoom: undefined;
   Lobby: { code: string; isHost: boolean };
   Game: undefined;
+  CustomQuestions: undefined;
   History: undefined;
 };

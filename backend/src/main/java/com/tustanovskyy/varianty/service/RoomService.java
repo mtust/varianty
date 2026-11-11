@@ -1,6 +1,7 @@
 package com.tustanovskyy.varianty.service;
 
 import com.tustanovskyy.varianty.domain.dto.room.AnswerOptionDto;
+import com.tustanovskyy.varianty.domain.dto.room.CustomQuestionDto;
 import com.tustanovskyy.varianty.domain.dto.room.HostQuestionDto;
 import com.tustanovskyy.varianty.domain.dto.room.PlayerScoreDto;
 import com.tustanovskyy.varianty.domain.dto.room.RevealedOptionDto;
@@ -46,6 +47,8 @@ public class RoomService {
 	public static final int MIN_ROUNDS = 5;
 	public static final int MAX_ROUNDS = 20;
 	public static final String KICKED_MESSAGE = "Вас видалено з цієї кімнати";
+	private static final int MAX_FACT_LENGTH = 300;
+	private static final String CUSTOM_QUESTION_ID_PREFIX = "custom-";
 
 	private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
 	private final Map<String, String[]> sessionToRoomAndPlayer = new ConcurrentHashMap<>();
@@ -143,15 +146,23 @@ public class RoomService {
 	}
 
 	/** Private state a (re)joining player may have missed while their socket was down. */
-	public record CatchUp(HostQuestionDto hostQuestion, VotingStartedDto votingStarted, RoundResultDto roundResult) {
+	public record CatchUp(
+			HostQuestionDto hostQuestion,
+			VotingStartedDto votingStarted,
+			RoundResultDto roundResult,
+			List<CustomQuestionDto> customQuestions) {
 	}
 
 	public CatchUp catchUp(String code, String playerId) {
 		GameRoom room = getRoomOrThrow(code);
 		synchronized (room) {
+			// The host's own pending questions, so their editor is filled after a reconnect too.
+			List<CustomQuestionDto> customQuestions = !room.hostless && room.hostId.equals(playerId)
+					? customQuestionDtos(room)
+					: null;
 			RoundState round = room.currentRound;
 			if (round == null) {
-				return new CatchUp(null, null, null);
+				return new CatchUp(null, null, null, customQuestions);
 			}
 			HostQuestionDto hostQuestion = !room.hostless && room.hostId.equals(playerId)
 					&& room.status != RoomStatus.LOBBY && room.status != RoomStatus.FINISHED
@@ -161,7 +172,7 @@ public class RoomService {
 					? new VotingStartedDto(round.options.stream().map(o -> new AnswerOptionDto(o.id, o.text)).toList())
 					: null;
 			RoundResultDto result = room.status == RoomStatus.RESULTS ? room.lastRoundResult : null;
-			return new CatchUp(hostQuestion, voting, result);
+			return new CatchUp(hostQuestion, voting, result, customQuestions);
 		}
 	}
 
@@ -188,6 +199,8 @@ public class RoomService {
 			if (room.players.size() < 2) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "Потрібно щонайменше 2 гравці");
 			}
+			// Every question the host wrote gets asked, even if that means more rounds than planned.
+			room.totalRounds = Math.max(room.totalRounds, room.customQuestions.size());
 			beginRound(room);
 			return snapshot(room);
 		}
@@ -354,18 +367,20 @@ public class RoomService {
 			}
 
 			List<Question> all = questionRepository.findByCategoryAndLanguage(newCategory, room.language);
-			if (all.isEmpty()) {
+			int custom = room.customQuestions.size();
+			if (all.isEmpty() && custom < requestedRounds) {
 				throw new ApiException(HttpStatus.CONFLICT, "Питання закінчились, недостатньо фактів у базі");
 			}
 			long fresh = all.stream().filter(q -> !room.usedQuestionIds.contains(q.getId())).count();
-			if (fresh < requestedRounds) {
+			if (fresh < requestedRounds - custom) {
 				// Not enough unseen questions for a full game: allow repeats rather than a short game.
 				room.usedQuestionIds.clear();
 			}
 
 			cancelPhaseTimeout(room);
 			room.category = newCategory;
-			room.totalRounds = Math.max(1, Math.min(requestedRounds, all.size()));
+			// The host's own questions come first; built-in ones fill the remaining rounds.
+			room.totalRounds = Math.max(Math.max(1, custom), Math.min(requestedRounds, custom + all.size()));
 			room.roundNumber = 0;
 			room.currentRound = null;
 			room.lastRoundResult = null;
@@ -375,6 +390,67 @@ public class RoomService {
 			beginRound(room);
 			return snapshot(room);
 		}
+	}
+
+	public record CustomQuestionsResult(RoomSnapshot snapshot, List<CustomQuestionDto> customQuestions) {
+	}
+
+	/**
+	 * Adds a question the host wrote. It is only possible in a room with a host (the room creator
+	 * of a hostless game also plays, so they would know the answer), and only between games.
+	 */
+	public CustomQuestionsResult addCustomQuestion(String code, String hostId, String fact, String answer) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			requireCustomQuestionsEditable(room, hostId);
+			if (room.customQuestions.size() >= MAX_ROUNDS) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "Забагато власних питань");
+			}
+			if (fact == null || fact.isBlank()) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "Питання не може бути порожнім");
+			}
+			String trimmedFact = fact.trim();
+			if (trimmedFact.length() > MAX_FACT_LENGTH) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "Питання занадто довге");
+			}
+			String trimmedAnswer = requireNonBlank(answer);
+			room.customQuestions.add(Question.builder()
+					.id(CUSTOM_QUESTION_ID_PREFIX + UUID.randomUUID())
+					.fact(trimmedFact)
+					.correctAnswer(trimmedAnswer)
+					.category(room.category)
+					.language(room.language)
+					.build());
+			return new CustomQuestionsResult(snapshot(room), customQuestionDtos(room));
+		}
+	}
+
+	public CustomQuestionsResult removeCustomQuestion(String code, String hostId, String questionId) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			requireCustomQuestionsEditable(room, hostId);
+			boolean removed = room.customQuestions.removeIf(q -> q.getId().equals(questionId));
+			if (!removed) {
+				throw new ApiException(HttpStatus.NOT_FOUND, "Питання не знайдено");
+			}
+			return new CustomQuestionsResult(snapshot(room), customQuestionDtos(room));
+		}
+	}
+
+	private void requireCustomQuestionsEditable(GameRoom room, String hostId) {
+		requireHost(room, hostId);
+		if (room.hostless) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "Власні питання доступні лише в грі з ведучим");
+		}
+		if (room.status != RoomStatus.LOBBY && room.status != RoomStatus.FINISHED) {
+			throw new ApiException(HttpStatus.CONFLICT, "Власні питання можна змінювати лише до початку гри");
+		}
+	}
+
+	private static List<CustomQuestionDto> customQuestionDtos(GameRoom room) {
+		return room.customQuestions.stream()
+				.map(q -> new CustomQuestionDto(q.getId(), q.getFact(), q.getCorrectAnswer()))
+				.toList();
 	}
 
 	public RoomSnapshot publicSnapshot(String code) {
@@ -401,6 +477,11 @@ public class RoomService {
 	}
 
 	private void beginRound(GameRoom room) {
+		if (!room.customQuestions.isEmpty()) {
+			// The host's own questions go first, in the order they were written.
+			startRound(room, room.customQuestions.remove(0));
+			return;
+		}
 		List<Question> pool = questionRepository.findByCategoryAndLanguage(room.category, room.language).stream()
 				.filter(q -> !room.usedQuestionIds.contains(q.getId()))
 				.toList();
@@ -409,6 +490,10 @@ public class RoomService {
 		}
 		Question question = pool.get(RANDOM.nextInt(pool.size()));
 		room.usedQuestionIds.add(question.getId());
+		startRound(room, question);
+	}
+
+	private void startRound(GameRoom room, Question question) {
 		room.currentRound = new RoundState(question);
 		room.roundNumber++;
 		room.status = room.hostless ? RoomStatus.ANSWERING : RoomStatus.TRAP;
@@ -568,7 +653,8 @@ public class RoomService {
 				answered,
 				voted,
 				secondsRemaining(room),
-				room.category);
+				room.category,
+				room.customQuestions.size());
 	}
 
 	private int secondsRemaining(GameRoom room) {

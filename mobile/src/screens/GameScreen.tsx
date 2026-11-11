@@ -278,7 +278,11 @@ export function GameScreen({ navigation }: Props) {
             </View>
           ))}
           {state.isHost ? (
-            <NewGamePanel snapshot={snapshot} onStart={startNewGame} />
+            <NewGamePanel
+              snapshot={snapshot}
+              onStart={startNewGame}
+              onEditCustomQuestions={() => navigation.navigate('CustomQuestions')}
+            />
           ) : (
             <View style={styles.banner} accessibilityLiveRegion="polite">
               <Icon source="clock-outline" size={24} color={theme.colors.secondary} />
@@ -339,9 +343,11 @@ function ScoreBoard({
 function NewGamePanel({
   snapshot,
   onStart,
+  onEditCustomQuestions,
 }: {
   snapshot: RoomSnapshot;
   onStart: (settings: NewGameSettings) => void;
+  onEditCustomQuestions: () => void;
 }) {
   const t = useT();
   const [category, setCategory] = useState<QuestionCategory>(snapshot.category ?? 'facts');
@@ -350,6 +356,8 @@ function NewGamePanel({
   );
   const [sent, setSent] = useState<'keep' | 'reset' | null>(null);
   const enoughPlayers = snapshot.players.length >= 2;
+  const customCount = snapshot.customQuestionCount ?? 0;
+  const canEditCustom = !snapshot.hostless && snapshot.customQuestionCount !== undefined;
 
   // If the server rejects the request (e.g. not enough players) let the host try again.
   useEffect(() => {
@@ -396,6 +404,14 @@ function NewGamePanel({
             onPress={() => setRounds((r) => Math.min(MAX_ROUNDS, r + 1))}
           />
         </View>
+        {canEditCustom && (
+          <Button mode="outlined" icon="pencil-plus-outline" style={styles.action} onPress={onEditCustomQuestions}>
+            {t('lobby.customQuestions', { count: customCount })}
+          </Button>
+        )}
+        {customCount > rounds && (
+          <Text style={styles.newGameHint}>{t('custom.moreRounds', { rounds, count: customCount })}</Text>
+        )}
         <Button
           mode="contained"
           icon="plus-circle-outline"

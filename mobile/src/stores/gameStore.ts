@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import { localizeServerError, translate } from '@/i18n';
 import { gameSocket } from '@/services/socket.service';
-import { HostQuestion, NewGameSettings, RoomSnapshot, RoundResult, VotingStarted } from '@/types/game';
+import { CustomQuestion, HostQuestion, NewGameSettings, RoomSnapshot, RoundResult, VotingStarted } from '@/types/game';
 
 interface GameState {
   code: string | null;
@@ -17,6 +17,8 @@ interface GameState {
   error: string | null;
   /** Set when the host removed this player from the room; screens leave the room and go home. */
   kicked: boolean;
+  /** Host only: their own questions that haven't been asked yet. */
+  customQuestions: CustomQuestion[];
 
   connectAndJoin: (token: string, code: string, isHost: boolean) => Promise<void>;
   startGame: () => void;
@@ -26,6 +28,8 @@ interface GameState {
   nextRound: () => void;
   startNewGame: (settings: NewGameSettings) => void;
   kickPlayer: (playerId: string) => void;
+  addCustomQuestion: (fact: string, answer: string) => boolean;
+  removeCustomQuestion: (id: string) => void;
   leaveRoom: () => void;
   clearError: () => void;
 }
@@ -42,10 +46,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   myVoteOptionId: null,
   error: null,
   kicked: false,
+  customQuestions: [],
 
   connectAndJoin: async (token, code, isHost) => {
     await gameSocket.connect(token);
-    set({ code, isHost, kicked: false });
+    set({ code, isHost, kicked: false, customQuestions: [] });
     gameSocket.joinRoom(code, {
       onSnapshot: (snapshot) => {
         const previous = get().snapshot;
@@ -71,6 +76,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       onVotingStarted: (voting) => set({ votingOptions: voting }),
       onRoundResult: (result) => set({ roundResult: result }),
       onHostQuestion: (question) => set({ hostQuestion: question }),
+      onCustomQuestions: (questions) => set({ customQuestions: questions }),
       onKicked: () => {
         // Stop the socket right away so a reconnect doesn't try to rejoin; the screens
         // see `kicked` and navigate home.
@@ -113,6 +119,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   kickPlayer: (playerId) => sendSafely(set, () => gameSocket.kickPlayer(get().code!, playerId)),
 
+  addCustomQuestion: (fact, answer) => sendSafely(set, () => gameSocket.addCustomQuestion(get().code!, fact, answer)),
+
+  removeCustomQuestion: (id) => sendSafely(set, () => gameSocket.removeCustomQuestion(get().code!, id)),
+
   leaveRoom: () => {
     gameSocket.disconnect();
     set({
@@ -127,6 +137,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       myVoteOptionId: null,
       error: null,
       kicked: false,
+      customQuestions: [],
     });
   },
 

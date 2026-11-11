@@ -138,6 +138,22 @@ export function LobbyScreen({ route, navigation }: Props) {
         )}
       />
 
+      {/* Older servers don't send the count; the button only shows once they support it. */}
+      {isHost && !snapshot.hostless && snapshot.customQuestionCount !== undefined && (
+        <Button
+          mode="outlined"
+          icon="pencil-plus-outline"
+          style={styles.customButton}
+          onPress={() => navigation.navigate('CustomQuestions')}
+        >
+          {t('lobby.customQuestions', { count: snapshot.customQuestionCount })}
+        </Button>
+      )}
+      {!isHost && !!snapshot.customQuestionCount && (
+        <Text style={styles.customInfo}>
+          {t('lobby.customQuestionsAdded', { count: snapshot.customQuestionCount })}
+        </Text>
+      )}
       {isHost && (
         <Button
           mode="contained"
@@ -187,4 +203,6 @@ const styles = StyleSheet.create({
   disconnected: { opacity: 0.5, fontStyle: 'italic' },
   empty: { textAlign: 'center', opacity: 0.6, marginTop: 24 },
   hint: { textAlign: 'center', marginTop: 12, opacity: 0.7 },
+  customButton: { marginBottom: 12 },
+  customInfo: { textAlign: 'center', marginBottom: 12, opacity: 0.7 },
 });

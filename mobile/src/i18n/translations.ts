@@ -8,6 +8,7 @@ export const uk = {
   'nav.history': 'Історія ігор',
   'nav.guest': 'Гра як гість',
   'nav.account': 'Акаунт',
+  'nav.customQuestions': 'Власні питання',
 
   'landing.guest': 'Грати як гість',
   'landing.signIn': 'Увійти / Зареєструватися',
@@ -66,6 +67,20 @@ export const uk = {
   'lobby.removeLabel': 'Видалити {name} з кімнати',
   'lobby.copyCode': 'Скопіювати код кімнати',
   'lobby.codeCopied': 'Код {code} скопійовано',
+  'lobby.customQuestions': 'Власні питання ({count})',
+  'lobby.customQuestionsAdded': 'Ведучий підготував власних питань: {count}',
+
+  'custom.intro':
+    'Напишіть факт або питання про себе чи друзів і правильну відповідь. Ваші питання будуть першими в грі, далі — питання з бази. Гравці не бачать їх заздалегідь.',
+  'custom.fact': 'Факт або питання',
+  'custom.factHint': 'Місце для відповіді позначте ___, наприклад: «Мій перший кіт звався ___»',
+  'custom.answer': 'Правильна відповідь',
+  'custom.add': 'Додати питання',
+  'custom.count': 'Додано {count} з {max}',
+  'custom.empty': 'Ви ще не додали жодного питання',
+  'custom.remove': 'Видалити питання',
+  'custom.moreRounds': 'Питань більше, ніж раундів ({rounds}) — гра триватиме {count} раундів',
+  'custom.locked': 'Гра вже йде. Нові питання можна буде додати перед наступною грою',
 
   'room.kicked': 'Ведучий видалив вас з кімнати',
   'room.kickTitle': 'Видалити гравця?',
@@ -149,6 +164,12 @@ export const uk = {
   'errors.kickedFromRoom': 'Вас видалено з цієї кімнати',
   'errors.cannotKickSelf': 'Не можна видалити себе з кімнати',
   'errors.gameNotFinished': 'Гра ще не завершилась',
+  'errors.tooManyCustom': 'Забагато власних питань',
+  'errors.emptyFact': 'Питання не може бути порожнім',
+  'errors.longFact': 'Питання занадто довге',
+  'errors.customHostOnly': 'Власні питання доступні лише в грі з ведучим',
+  'errors.customLocked': 'Власні питання можна змінювати лише до початку гри',
+  'errors.customNotFound': 'Питання не знайдено',
 };
 
 export type TranslationKey = keyof typeof uk;
@@ -164,6 +185,7 @@ export const en: Record<TranslationKey, string> = {
   'nav.history': 'Game history',
   'nav.guest': 'Play as guest',
   'nav.account': 'Account',
+  'nav.customQuestions': 'Your own questions',
 
   'landing.guest': 'Play as guest',
   'landing.signIn': 'Sign in / Sign up',
@@ -222,6 +244,20 @@ export const en: Record<TranslationKey, string> = {
   'lobby.removeLabel': 'Remove {name} from the room',
   'lobby.copyCode': 'Copy room code',
   'lobby.codeCopied': 'Code {code} copied',
+  'lobby.customQuestions': 'Your own questions ({count})',
+  'lobby.customQuestionsAdded': 'The host has prepared {count} own questions',
+
+  'custom.intro':
+    "Write a fact or a question about yourself or your friends and its correct answer. Your questions come first, then questions from the app. Players don't see them in advance.",
+  'custom.fact': 'Fact or question',
+  'custom.factHint': 'Mark the place for the answer with ___, for example: "My first cat was called ___"',
+  'custom.answer': 'Correct answer',
+  'custom.add': 'Add question',
+  'custom.count': '{count} of {max} added',
+  'custom.empty': "You haven't added any questions yet",
+  'custom.remove': 'Remove question',
+  'custom.moreRounds': 'More questions than rounds ({rounds}), so the game will have {count} rounds',
+  'custom.locked': 'The game is on. You can add new questions before the next game',
 
   'room.kicked': 'You were removed from the room by the host',
   'room.kickTitle': 'Remove player?',
@@ -305,6 +341,12 @@ export const en: Record<TranslationKey, string> = {
   'errors.kickedFromRoom': 'You were removed from this room',
   'errors.cannotKickSelf': "You can't remove yourself from the room",
   'errors.gameNotFinished': "The game isn't over yet",
+  'errors.tooManyCustom': 'Too many own questions',
+  'errors.emptyFact': "The question can't be empty",
+  'errors.longFact': 'The question is too long',
+  'errors.customHostOnly': 'Own questions are only available in a game with a host',
+  'errors.customLocked': 'Own questions can only be changed before the game starts',
+  'errors.customNotFound': 'Question not found',
 };
 
 // The server sends fixed Ukrainian or English messages; they're mapped here so they show in
@@ -336,4 +378,10 @@ export const serverErrors: Record<string, TranslationKey> = {
   'Вас видалено з цієї кімнати': 'errors.kickedFromRoom',
   'Не можна видалити себе з кімнати': 'errors.cannotKickSelf',
   'Гра ще не завершилась': 'errors.gameNotFinished',
+  'Забагато власних питань': 'errors.tooManyCustom',
+  'Питання не може бути порожнім': 'errors.emptyFact',
+  'Питання занадто довге': 'errors.longFact',
+  'Власні питання доступні лише в грі з ведучим': 'errors.customHostOnly',
+  'Власні питання можна змінювати лише до початку гри': 'errors.customLocked',
+  'Питання не знайдено': 'errors.customNotFound',
 };

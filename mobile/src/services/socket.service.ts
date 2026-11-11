@@ -4,6 +4,7 @@ import { AppState, AppStateStatus, NativeEventSubscription } from 'react-native'
 import { localizeServerError, translate } from '@/i18n';
 import { WS_URL } from '@/services/api.service';
 import {
+  CustomQuestion,
   HostQuestion,
   KickedNotice,
   NewGameSettings,
@@ -20,6 +21,7 @@ interface RoomHandlers {
   onHostQuestion: (question: HostQuestion) => void;
   onError: (error: ServerError) => void;
   onKicked: (notice: KickedNotice) => void;
+  onCustomQuestions: (questions: CustomQuestion[]) => void;
 }
 
 class GameSocketService {
@@ -160,6 +162,9 @@ class GameSocketService {
       client.subscribe('/user/queue/results', (msg) => handlers.onRoundResult(parse<RoundResult>(msg))),
       client.subscribe('/user/queue/errors', (msg) => handlers.onError(parse<ServerError>(msg))),
       client.subscribe('/user/queue/kicked', (msg) => handlers.onKicked(parse<KickedNotice>(msg))),
+      client.subscribe('/user/queue/custom-questions', (msg) =>
+        handlers.onCustomQuestions(parse<CustomQuestion[]>(msg))
+      ),
     ];
 
     client.publish({ destination: `/app/room/${code}/join`, body: '{}' });
@@ -183,6 +188,14 @@ class GameSocketService {
 
   kickPlayer(code: string, playerId: string) {
     this.send({ destination: `/app/room/${code}/kick`, body: JSON.stringify({ playerId }) });
+  }
+
+  addCustomQuestion(code: string, fact: string, answer: string) {
+    this.send({ destination: `/app/room/${code}/custom-questions/add`, body: JSON.stringify({ fact, answer }) });
+  }
+
+  removeCustomQuestion(code: string, id: string) {
+    this.send({ destination: `/app/room/${code}/custom-questions/remove`, body: JSON.stringify({ id }) });
   }
 
   startNewGame(code: string, settings: NewGameSettings) {

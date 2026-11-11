@@ -1,10 +1,12 @@
 package com.tustanovskyy.varianty.ws;
 
 import com.tustanovskyy.varianty.domain.dto.room.AnswerPayload;
+import com.tustanovskyy.varianty.domain.dto.room.CustomQuestionPayload;
 import com.tustanovskyy.varianty.domain.dto.room.ErrorDto;
 import com.tustanovskyy.varianty.domain.dto.room.KickPayload;
 import com.tustanovskyy.varianty.domain.dto.room.KickedDto;
 import com.tustanovskyy.varianty.domain.dto.room.NewGamePayload;
+import com.tustanovskyy.varianty.domain.dto.room.RemoveCustomQuestionPayload;
 import com.tustanovskyy.varianty.domain.dto.room.RoomSnapshot;
 import com.tustanovskyy.varianty.domain.dto.room.TrapPayload;
 import com.tustanovskyy.varianty.domain.dto.room.VotePayload;
@@ -46,6 +48,9 @@ public class GameWebSocketController {
 		}
 		if (catchUp.roundResult() != null) {
 			messagingTemplate.convertAndSendToUser(principal.playerId(), "/queue/results", catchUp.roundResult());
+		}
+		if (catchUp.customQuestions() != null) {
+			messagingTemplate.convertAndSendToUser(principal.playerId(), "/queue/custom-questions", catchUp.customQuestions());
 		}
 	}
 
@@ -102,6 +107,24 @@ public class GameWebSocketController {
 			messagingTemplate.convertAndSendToUser(
 					principal.playerId(), "/queue/host-question", roomService.currentHostQuestion(code, principal.playerId()));
 		}
+	}
+
+	@MessageMapping("/room/{code}/custom-questions/add")
+	public void addCustomQuestion(@DestinationVariable String code, StompPrincipal principal, @Payload CustomQuestionPayload payload) {
+		sendCustomQuestions(code, principal,
+				roomService.addCustomQuestion(code, principal.playerId(), payload.fact(), payload.answer()));
+	}
+
+	@MessageMapping("/room/{code}/custom-questions/remove")
+	public void removeCustomQuestion(
+			@DestinationVariable String code, StompPrincipal principal, @Payload RemoveCustomQuestionPayload payload) {
+		sendCustomQuestions(code, principal, roomService.removeCustomQuestion(code, principal.playerId(), payload.id()));
+	}
+
+	// The questions and answers go to the host only; everyone else just sees how many there are.
+	private void sendCustomQuestions(String code, StompPrincipal principal, RoomService.CustomQuestionsResult result) {
+		messagingTemplate.convertAndSendToUser(principal.playerId(), "/queue/custom-questions", result.customQuestions());
+		broadcast(code, result.snapshot());
 	}
 
 	@MessageMapping("/room/{code}/kick")

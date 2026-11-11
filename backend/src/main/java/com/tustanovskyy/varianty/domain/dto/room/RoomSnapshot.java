@@ -14,5 +14,7 @@ public record RoomSnapshot(
 		int answeredCount,
 		int votedCount,
 		int secondsRemaining,
-		String category) {
+		String category,
+		/** Host's own questions still waiting to be asked; players see only how many there are. */
+		int customQuestionCount) {
 }
