@@ -14,11 +14,12 @@ import {
   TextInput,
 } from 'react-native-paper';
 
+import { AnswerTimePicker, ManualTimerCheckbox } from '@/components/AnswerTimePicker';
 import { confirmKick, showKickedAlert } from '@/components/confirmKick';
 import { useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/stores/authStore';
-import { MAX_ROUNDS, MIN_ROUNDS, QuestionCategory } from '@/services/room.service';
+import { DEFAULT_ANSWER_SECONDS, MAX_ROUNDS, MIN_ROUNDS, QuestionCategory } from '@/services/room.service';
 import { useGameStore } from '@/stores/gameStore';
 import { colors, theme } from '@/theme/theme';
 import { NewGameSettings, PlayerScore, RevealedOption, RoomSnapshot } from '@/types/game';
@@ -43,8 +44,21 @@ export function GameScreen({ navigation }: Props) {
       kicked: s.kicked,
     }))
   );
-  const { submitTrap, submitAnswer, submitVote, nextRound, startNewGame, leaveRoom, clearError, kickPlayer } = useGameStore(
+  const {
+    submitTrap,
+    submitAnswer,
+    submitVote,
+    nextRound,
+    endAnswering,
+    endVoting,
+    startNewGame,
+    leaveRoom,
+    clearError,
+    kickPlayer,
+  } = useGameStore(
     useShallow((s) => ({
+      endAnswering: s.endAnswering,
+      endVoting: s.endVoting,
       kickPlayer: s.kickPlayer,
       submitTrap: s.submitTrap,
       submitAnswer: s.submitAnswer,
@@ -80,13 +94,13 @@ export function GameScreen({ navigation }: Props) {
   // the server is the source of truth for the deadline.
   useEffect(() => {
     const status = state.snapshot?.status;
-    if (status === 'ANSWERING' || status === 'VOTING') {
+    if ((status === 'ANSWERING' || status === 'VOTING') && !state.snapshot!.manualTimer) {
       setRemaining(state.snapshot!.secondsRemaining);
     } else {
       setRemaining(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.snapshot?.status, state.snapshot?.secondsRemaining, state.snapshot?.roundNumber]);
+  }, [state.snapshot?.status, state.snapshot?.secondsRemaining, state.snapshot?.roundNumber, state.snapshot?.manualTimer]);
 
   // Tick the countdown down locally between server updates.
   useEffect(() => {
@@ -186,7 +200,12 @@ export function GameScreen({ navigation }: Props) {
       )}
 
       {snapshot.status === 'ANSWERING' && isNonPlayingHost && (
-        <WaitingBlock text={t('game.answering', { count: snapshot.answeredCount, total: snapshot.players.length })} />
+        <View>
+          <WaitingBlock text={t('game.answering', { count: snapshot.answeredCount, total: snapshot.players.length })} />
+          <Button mode="contained" icon="vote-outline" style={styles.action} onPress={() => endAnswering()}>
+            {t('game.endAnswering')}
+          </Button>
+        </View>
       )}
       {snapshot.status === 'ANSWERING' && !isNonPlayingHost && !state.mySubmittedAnswer && (
         <View>
@@ -207,7 +226,12 @@ export function GameScreen({ navigation }: Props) {
       )}
 
       {snapshot.status === 'VOTING' && isNonPlayingHost && (
-        <WaitingBlock text={t('game.voting', { count: snapshot.votedCount, total: snapshot.players.length })} />
+        <View>
+          <WaitingBlock text={t('game.voting', { count: snapshot.votedCount, total: snapshot.players.length })} />
+          <Button mode="contained" icon="flag-checkered" style={styles.action} onPress={() => endVoting()}>
+            {t('game.endVoting')}
+          </Button>
+        </View>
       )}
       {snapshot.status === 'VOTING' && !isNonPlayingHost && !state.myVoted && state.votingOptions && (
         <View>
@@ -339,7 +363,7 @@ function ScoreBoard({
 }
 
 // After the last round the host can play again with the same players: carry the scores over
-// or start from zero, and pick another category or number of rounds.
+// or start from zero, and pick another category, number of rounds or answer time.
 function NewGamePanel({
   snapshot,
   onStart,
@@ -354,6 +378,10 @@ function NewGamePanel({
   const [rounds, setRounds] = useState(
     Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, snapshot.totalRounds || MIN_ROUNDS))
   );
+  const [answerSeconds, setAnswerSeconds] = useState(snapshot.answerSeconds ?? DEFAULT_ANSWER_SECONDS);
+  const [manualTimer, setManualTimer] = useState(snapshot.manualTimer ?? false);
+  // Older servers don't send these settings and wouldn't understand them either.
+  const timerSupported = snapshot.answerSeconds !== undefined;
   const [sent, setSent] = useState<'keep' | 'reset' | null>(null);
   const enoughPlayers = snapshot.players.length >= 2;
   const customCount = snapshot.customQuestionCount ?? 0;
@@ -368,7 +396,11 @@ function NewGamePanel({
 
   const start = (keepScores: boolean) => {
     setSent(keepScores ? 'keep' : 'reset');
-    onStart({ keepScores, category, rounds });
+    onStart(
+      timerSupported
+        ? { keepScores, category, rounds, answerSeconds, manualTimer: snapshot.hostless ? undefined : manualTimer }
+        : { keepScores, category, rounds }
+    );
   };
 
   return (
@@ -404,6 +436,15 @@ function NewGamePanel({
             onPress={() => setRounds((r) => Math.min(MAX_ROUNDS, r + 1))}
           />
         </View>
+        {timerSupported && (
+          <>
+            <Text style={[styles.newGameLabel, styles.newGameRoundsLabel]}>{t('home.answerTime')}</Text>
+            <AnswerTimePicker value={answerSeconds} onChange={setAnswerSeconds} />
+            {!snapshot.hostless && (
+              <ManualTimerCheckbox checked={manualTimer} onChange={setManualTimer} label={t('newGame.manualTimer')} />
+            )}
+          </>
+        )}
         {canEditCustom && (
           <Button mode="outlined" icon="pencil-plus-outline" style={styles.action} onPress={onEditCustomQuestions}>
             {t('lobby.customQuestions', { count: customCount })}

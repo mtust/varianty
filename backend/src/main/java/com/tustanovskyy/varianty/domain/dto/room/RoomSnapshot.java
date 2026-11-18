@@ -16,5 +16,9 @@ public record RoomSnapshot(
 		int secondsRemaining,
 		String category,
 		/** Host's own questions still waiting to be asked; players see only how many there are. */
-		int customQuestionCount) {
+		int customQuestionCount,
+		/** Seconds players get to write an answer each round (the host's setting). */
+		int answerSeconds,
+		/** True when the host ends answering and voting by hand; secondsRemaining is then 0. */
+		boolean manualTimer) {
 }

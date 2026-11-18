@@ -22,6 +22,10 @@ export interface RoomSnapshot {
   category: 'facts' | 'quotes';
   /** Host's own questions still to be asked; missing on servers without custom questions. */
   customQuestionCount?: number;
+  /** Seconds players get to answer; missing on older servers. */
+  answerSeconds?: number;
+  /** Room with a host where the host ends answering and voting by hand (no countdown). */
+  manualTimer?: boolean;
 }
 
 /** A question the host wrote; only the host receives these. */
@@ -36,6 +40,8 @@ export interface NewGameSettings {
   keepScores: boolean;
   category: 'facts' | 'quotes';
   rounds: number;
+  answerSeconds?: number;
+  manualTimer?: boolean;
 }
 
 export interface HostQuestion {

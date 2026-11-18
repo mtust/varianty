@@ -2,6 +2,7 @@ package com.tustanovskyy.varianty.service;
 
 import com.tustanovskyy.varianty.domain.dto.room.AnswerOptionDto;
 import com.tustanovskyy.varianty.domain.dto.room.CustomQuestionDto;
+import com.tustanovskyy.varianty.domain.dto.room.CustomQuestionPayload;
 import com.tustanovskyy.varianty.domain.dto.room.HostQuestionDto;
 import com.tustanovskyy.varianty.domain.dto.room.PlayerScoreDto;
 import com.tustanovskyy.varianty.domain.dto.room.RevealedOptionDto;
@@ -42,7 +43,9 @@ public class RoomService {
 
 	private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 	private static final SecureRandom RANDOM = new SecureRandom();
-	private static final int ANSWER_TIMEOUT_SECONDS = 45;
+	public static final int DEFAULT_ANSWER_SECONDS = 45;
+	public static final int MIN_ANSWER_SECONDS = 15;
+	public static final int MAX_ANSWER_SECONDS = 180;
 	private static final int VOTE_TIMEOUT_SECONDS = 30;
 	public static final int MIN_ROUNDS = 5;
 	public static final int MAX_ROUNDS = 20;
@@ -75,17 +78,32 @@ public class RoomService {
 	}
 
 	public String createRoom(PlayerPrincipal host, boolean hostless, String category, String language, Integer rounds) {
+		return createRoom(host, hostless, category, language, rounds, null, false);
+	}
+
+	/**
+	 * @param answerSeconds time players get to write an answer, null for the default
+	 * @param manualTimer   rooms with a host only: no countdowns, the host ends answering and voting
+	 */
+	public String createRoom(
+			PlayerPrincipal host, boolean hostless, String category, String language, Integer rounds,
+			Integer answerSeconds, boolean manualTimer) {
 		requireKnownCategory(category);
 		if (!Question.LANGUAGE_UK.equals(language) && !Question.LANGUAGE_EN.equals(language)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома мова");
 		}
 		int requestedRounds = rounds != null ? rounds : roundsPerGame;
 		requireRoundsInRange(requestedRounds);
+		int requestedAnswerSeconds = answerSeconds != null ? answerSeconds : DEFAULT_ANSWER_SECONDS;
+		requireAnswerSecondsInRange(requestedAnswerSeconds);
 		// Never plan more rounds than there are distinct questions for this category/language.
 		int available = questionRepository.findByCategoryAndLanguage(category, language).size();
 		int totalRounds = Math.max(1, Math.min(requestedRounds, available));
 		String code = generateUniqueCode();
 		GameRoom room = new GameRoom(code, host.playerId(), host.displayName(), !host.guest(), totalRounds, hostless, category, language);
+		room.answerSeconds = requestedAnswerSeconds;
+		// Without a host nobody could end a phase, so those rooms always use the timer.
+		room.manualTimer = manualTimer && !hostless;
 		if (hostless) {
 			room.players.put(host.playerId(), new PlayerState(host.playerId(), host.displayName(), !host.guest()));
 		}
@@ -227,7 +245,7 @@ public class RoomService {
 			String trimmed = requireNonBlank(text);
 			room.currentRound.hostTrapAnswer = trimmed;
 			room.status = RoomStatus.ANSWERING;
-			schedulePhaseTimeout(room, ANSWER_TIMEOUT_SECONDS, RoomStatus.ANSWERING, room.roundNumber, () -> forceEndAnswering(room));
+			schedulePhaseTimeout(room, room.answerSeconds, RoomStatus.ANSWERING, room.roundNumber, () -> forceEndAnswering(room));
 			return snapshot(room);
 		}
 	}
@@ -282,6 +300,38 @@ public class RoomService {
 				return new VoteResult(snapshot(room), result);
 			}
 			return new VoteResult(snapshot(room), null);
+		}
+	}
+
+	/** The host stops collecting answers and opens voting, without waiting for everyone or the timer. */
+	public AnswerResult endAnswering(String code, String hostId) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			requireHost(room, hostId);
+			if (room.hostless) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "У кімнаті без ведучого етапи завершуються за таймером");
+			}
+			if (room.status != RoomStatus.ANSWERING) {
+				throw new ApiException(HttpStatus.CONFLICT, "Зараз не етап відповідей");
+			}
+			VotingStartedDto votingStarted = beginVoting(room);
+			return new AnswerResult(snapshot(room), votingStarted);
+		}
+	}
+
+	/** The host closes voting and shows the round's results, without waiting for everyone or the timer. */
+	public VoteResult endVoting(String code, String hostId) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			requireHost(room, hostId);
+			if (room.hostless) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "У кімнаті без ведучого етапи завершуються за таймером");
+			}
+			if (room.status != RoomStatus.VOTING) {
+				throw new ApiException(HttpStatus.CONFLICT, "Зараз не етап голосування");
+			}
+			RoundResultDto result = resolveRound(room);
+			return new VoteResult(snapshot(room), result);
 		}
 	}
 
@@ -348,10 +398,16 @@ public class RoomService {
 
 	/**
 	 * Starts another game in the same room once the previous one has finished: same players,
-	 * scores carried over or reset to zero, and optionally another category / round count.
+	 * scores carried over or reset to zero, and optionally another category / round count / answer time.
 	 * Questions already asked in this room are not repeated while there are enough fresh ones.
 	 */
 	public RoomSnapshot startNewGame(String code, String hostId, boolean keepScores, String category, Integer rounds) {
+		return startNewGame(code, hostId, keepScores, category, rounds, null, null);
+	}
+
+	public RoomSnapshot startNewGame(
+			String code, String hostId, boolean keepScores, String category, Integer rounds, Integer answerSeconds,
+			Boolean manualTimer) {
 		GameRoom room = getRoomOrThrow(code);
 		synchronized (room) {
 			requireHost(room, hostId);
@@ -362,6 +418,8 @@ public class RoomService {
 			requireKnownCategory(newCategory);
 			int requestedRounds = rounds != null ? rounds : room.totalRounds;
 			requireRoundsInRange(requestedRounds);
+			int newAnswerSeconds = answerSeconds != null ? answerSeconds : room.answerSeconds;
+			requireAnswerSecondsInRange(newAnswerSeconds);
 			if (room.players.size() < 2) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "Потрібно щонайменше 2 гравці");
 			}
@@ -379,6 +437,10 @@ public class RoomService {
 
 			cancelPhaseTimeout(room);
 			room.category = newCategory;
+			room.answerSeconds = newAnswerSeconds;
+			if (manualTimer != null) {
+				room.manualTimer = manualTimer && !room.hostless;
+			}
 			// The host's own questions come first; built-in ones fill the remaining rounds.
 			room.totalRounds = Math.max(Math.max(1, custom), Math.min(requestedRounds, custom + all.size()));
 			room.roundNumber = 0;
@@ -400,29 +462,48 @@ public class RoomService {
 	 * of a hostless game also plays, so they would know the answer), and only between games.
 	 */
 	public CustomQuestionsResult addCustomQuestion(String code, String hostId, String fact, String answer) {
+		return addCustomQuestions(code, hostId, List.of(new CustomQuestionPayload(fact, answer)));
+	}
+
+	/** Adds several questions at once; if any of them is invalid, none are added. */
+	public CustomQuestionsResult addCustomQuestions(String code, String hostId, List<CustomQuestionPayload> questions) {
 		GameRoom room = getRoomOrThrow(code);
 		synchronized (room) {
 			requireCustomQuestionsEditable(room, hostId);
-			if (room.customQuestions.size() >= MAX_ROUNDS) {
-				throw new ApiException(HttpStatus.BAD_REQUEST, "Забагато власних питань");
-			}
-			if (fact == null || fact.isBlank()) {
+			if (questions == null || questions.isEmpty()) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "Питання не може бути порожнім");
 			}
-			String trimmedFact = fact.trim();
-			if (trimmedFact.length() > MAX_FACT_LENGTH) {
-				throw new ApiException(HttpStatus.BAD_REQUEST, "Питання занадто довге");
+			if (room.customQuestions.size() + questions.size() > MAX_ROUNDS) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "Забагато власних питань");
 			}
-			String trimmedAnswer = requireNonBlank(answer);
-			room.customQuestions.add(Question.builder()
-					.id(CUSTOM_QUESTION_ID_PREFIX + UUID.randomUUID())
-					.fact(trimmedFact)
-					.correctAnswer(trimmedAnswer)
-					.category(room.category)
-					.language(room.language)
-					.build());
+			List<Question> added = new ArrayList<>();
+			for (CustomQuestionPayload question : questions) {
+				added.add(Question.builder()
+						.id(CUSTOM_QUESTION_ID_PREFIX + UUID.randomUUID())
+						.fact(normalizeCustomFact(question == null ? null : question.fact()))
+						.correctAnswer(requireNonBlank(question == null ? null : question.answer()))
+						.category(room.category)
+						.language(room.language)
+						.build());
+			}
+			room.customQuestions.addAll(added);
 			return new CustomQuestionsResult(snapshot(room), customQuestionDtos(room));
 		}
+	}
+
+	/**
+	 * Trims the host's text and turns any run of underscores ("_", "__", "____") into the
+	 * ___ blank the app fills with the answer on the results screen.
+	 */
+	private static String normalizeCustomFact(String fact) {
+		if (fact == null || fact.isBlank()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "Питання не може бути порожнім");
+		}
+		String normalized = fact.trim().replaceAll("_+", "___");
+		if (normalized.length() > MAX_FACT_LENGTH) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "Питання занадто довге");
+		}
+		return normalized;
 	}
 
 	public CustomQuestionsResult removeCustomQuestion(String code, String hostId, String questionId) {
@@ -498,7 +579,7 @@ public class RoomService {
 		room.roundNumber++;
 		room.status = room.hostless ? RoomStatus.ANSWERING : RoomStatus.TRAP;
 		if (room.hostless) {
-			schedulePhaseTimeout(room, ANSWER_TIMEOUT_SECONDS, RoomStatus.ANSWERING, room.roundNumber, () -> forceEndAnswering(room));
+			schedulePhaseTimeout(room, room.answerSeconds, RoomStatus.ANSWERING, room.roundNumber, () -> forceEndAnswering(room));
 		}
 	}
 
@@ -510,6 +591,10 @@ public class RoomService {
 	 */
 	private void schedulePhaseTimeout(GameRoom room, int seconds, RoomStatus expectedStatus, int expectedRound, Runnable onTimeout) {
 		cancelPhaseTimeout(room);
+		if (room.manualTimer) {
+			// The host ends each phase by hand (endAnswering / endVoting).
+			return;
+		}
 		room.phaseDeadline = Instant.now().plusSeconds(seconds);
 		room.phaseTimeoutTask = scheduler.schedule(() -> {
 			synchronized (room) {
@@ -654,7 +739,9 @@ public class RoomService {
 				voted,
 				secondsRemaining(room),
 				room.category,
-				room.customQuestions.size());
+				room.customQuestions.size(),
+				room.answerSeconds,
+				room.manualTimer);
 	}
 
 	private int secondsRemaining(GameRoom room) {
@@ -674,6 +761,13 @@ public class RoomService {
 	private static void requireKnownCategory(String category) {
 		if (!Question.CATEGORY_FACTS.equals(category) && !Question.CATEGORY_QUOTES.equals(category)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "Невідома категорія питань");
+		}
+	}
+
+	private static void requireAnswerSecondsInRange(int seconds) {
+		if (seconds < MIN_ANSWER_SECONDS || seconds > MAX_ANSWER_SECONDS) {
+			throw new ApiException(HttpStatus.BAD_REQUEST,
+					"Час на відповідь має бути від " + MIN_ANSWER_SECONDS + " до " + MAX_ANSWER_SECONDS + " секунд");
 		}
 	}
 

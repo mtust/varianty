@@ -34,6 +34,10 @@ public class GameRoom {
 	public RoomStatus status = RoomStatus.LOBBY;
 	public int roundNumber = 0;
 	public int totalRounds;
+	/** How long players have to write their answer each round; the host picks it. */
+	public int answerSeconds = 45;
+	/** Rooms with a host only: no countdowns, the host ends answering and voting by hand. */
+	public boolean manualTimer;
 	public RoundState currentRound;
 	/** Result of the last resolved round, re-sent to players who reconnect during RESULTS. */
 	public com.tustanovskyy.varianty.domain.dto.room.RoundResultDto lastRoundResult;

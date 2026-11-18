@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.tustanovskyy.varianty.domain.dto.room.CustomQuestionPayload;
 import com.tustanovskyy.varianty.domain.dto.room.RoomSnapshot;
 import com.tustanovskyy.varianty.domain.entity.Question;
 import com.tustanovskyy.varianty.exception.ApiException;
@@ -84,6 +85,27 @@ class RoomServiceCustomQuestionsTest {
 		assertThatThrownBy(() -> service.addCustomQuestion(code, ANNA.playerId(), "Q", "a")).isInstanceOf(ApiException.class);
 		service.startGame(code, HOST.playerId());
 		assertThatThrownBy(() -> service.addCustomQuestion(code, HOST.playerId(), "Q", "a")).isInstanceOf(ApiException.class);
+	}
+
+	@Test
+	void batchAddIsAllOrNothingAndNormalizesBlanks() {
+		String code = roomWithPlayers(false, 5);
+		var result = service.addCustomQuestions(code, HOST.playerId(), List.of(
+				new CustomQuestionPayload("Столиця Франції _", "Париж"),
+				new CustomQuestionPayload("Мій кіт звався ____ і любив рибу", "Мурчик")));
+		assertThat(result.customQuestions()).extracting(q -> q.fact())
+				.containsExactly("Столиця Франції ___", "Мій кіт звався ___ і любив рибу");
+
+		assertThatThrownBy(() -> service.addCustomQuestions(code, HOST.playerId(), List.of(
+				new CustomQuestionPayload("Ok ___", "a"),
+				new CustomQuestionPayload("No answer ___", " "))))
+				.isInstanceOf(ApiException.class);
+		assertThat(service.publicSnapshot(code).customQuestionCount()).isEqualTo(2);
+
+		List<CustomQuestionPayload> tooMany = IntStream.range(0, 19)
+				.mapToObj(i -> new CustomQuestionPayload("Q" + i + " ___", "a")).toList();
+		assertThatThrownBy(() -> service.addCustomQuestions(code, HOST.playerId(), tooMany))
+				.hasMessage("Забагато власних питань");
 	}
 
 	@Test

@@ -2,6 +2,7 @@ package com.tustanovskyy.varianty.ws;
 
 import com.tustanovskyy.varianty.domain.dto.room.AnswerPayload;
 import com.tustanovskyy.varianty.domain.dto.room.CustomQuestionPayload;
+import com.tustanovskyy.varianty.domain.dto.room.CustomQuestionsBatchPayload;
 import com.tustanovskyy.varianty.domain.dto.room.ErrorDto;
 import com.tustanovskyy.varianty.domain.dto.room.KickPayload;
 import com.tustanovskyy.varianty.domain.dto.room.KickedDto;
@@ -88,6 +89,20 @@ public class GameWebSocketController {
 		}
 	}
 
+	@MessageMapping("/room/{code}/end-answering")
+	public void endAnswering(@DestinationVariable String code, StompPrincipal principal) {
+		RoomService.AnswerResult result = roomService.endAnswering(code, principal.playerId());
+		broadcast(code, result.snapshot());
+		messagingTemplate.convertAndSend("/topic/room/" + code + "/voting", result.votingStarted());
+	}
+
+	@MessageMapping("/room/{code}/end-voting")
+	public void endVoting(@DestinationVariable String code, StompPrincipal principal) {
+		RoomService.VoteResult result = roomService.endVoting(code, principal.playerId());
+		broadcast(code, result.snapshot());
+		messagingTemplate.convertAndSend("/topic/room/" + code + "/results", result.roundResult());
+	}
+
 	@MessageMapping("/room/{code}/next-round")
 	public void nextRound(@DestinationVariable String code, StompPrincipal principal) {
 		RoomService.NextRoundResult result = roomService.nextRound(code, principal.playerId());
@@ -101,7 +116,8 @@ public class GameWebSocketController {
 	@MessageMapping("/room/{code}/new-game")
 	public void newGame(@DestinationVariable String code, StompPrincipal principal, @Payload NewGamePayload payload) {
 		RoomSnapshot snapshot = roomService.startNewGame(
-				code, principal.playerId(), payload.keepScores(), payload.category(), payload.rounds());
+				code, principal.playerId(), payload.keepScores(), payload.category(), payload.rounds(), payload.answerSeconds(),
+				payload.manualTimer());
 		broadcast(code, snapshot);
 		if (!snapshot.hostless()) {
 			messagingTemplate.convertAndSendToUser(
@@ -113,6 +129,13 @@ public class GameWebSocketController {
 	public void addCustomQuestion(@DestinationVariable String code, StompPrincipal principal, @Payload CustomQuestionPayload payload) {
 		sendCustomQuestions(code, principal,
 				roomService.addCustomQuestion(code, principal.playerId(), payload.fact(), payload.answer()));
+	}
+
+	@MessageMapping("/room/{code}/custom-questions/add-many")
+	public void addCustomQuestions(
+			@DestinationVariable String code, StompPrincipal principal, @Payload CustomQuestionsBatchPayload payload) {
+		sendCustomQuestions(code, principal,
+				roomService.addCustomQuestions(code, principal.playerId(), payload.questions()));
 	}
 
 	@MessageMapping("/room/{code}/custom-questions/remove")

@@ -209,12 +209,24 @@ class GameSocketService {
     this.send({ destination: `/app/room/${code}/custom-questions/add`, body: JSON.stringify({ fact, answer }) });
   }
 
+  addCustomQuestions(code: string, questions: { fact: string; answer: string }[]) {
+    this.send({ destination: `/app/room/${code}/custom-questions/add-many`, body: JSON.stringify({ questions }) });
+  }
+
   removeCustomQuestion(code: string, id: string) {
     this.send({ destination: `/app/room/${code}/custom-questions/remove`, body: JSON.stringify({ id }) });
   }
 
   startNewGame(code: string, settings: NewGameSettings) {
     this.send({ destination: `/app/room/${code}/new-game`, body: JSON.stringify(settings) });
+  }
+
+  endAnswering(code: string) {
+    this.send({ destination: `/app/room/${code}/end-answering`, body: '{}' });
+  }
+
+  endVoting(code: string) {
+    this.send({ destination: `/app/room/${code}/end-voting`, body: '{}' });
   }
 
   nextRound(code: string) {

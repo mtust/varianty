@@ -27,9 +27,14 @@ interface GameState {
   submitAnswer: (text: string) => void;
   submitVote: (optionId: string) => void;
   nextRound: () => void;
+  /** Host: stop collecting answers and open voting now. */
+  endAnswering: () => void;
+  /** Host: close voting and show the round's results now. */
+  endVoting: () => void;
   startNewGame: (settings: NewGameSettings) => void;
   kickPlayer: (playerId: string) => void;
   addCustomQuestion: (fact: string, answer: string) => boolean;
+  addCustomQuestions: (questions: { fact: string; answer: string }[]) => boolean;
   removeCustomQuestion: (id: string) => void;
   leaveRoom: () => void;
   clearError: () => void;
@@ -116,11 +121,17 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   nextRound: () => sendSafely(set, () => gameSocket.nextRound(get().code!)),
 
+  endAnswering: () => sendSafely(set, () => gameSocket.endAnswering(get().code!)),
+
+  endVoting: () => sendSafely(set, () => gameSocket.endVoting(get().code!)),
+
   startNewGame: (settings) => sendSafely(set, () => gameSocket.startNewGame(get().code!, settings)),
 
   kickPlayer: (playerId) => sendSafely(set, () => gameSocket.kickPlayer(get().code!, playerId)),
 
   addCustomQuestion: (fact, answer) => sendSafely(set, () => gameSocket.addCustomQuestion(get().code!, fact, answer)),
+
+  addCustomQuestions: (questions) => sendSafely(set, () => gameSocket.addCustomQuestions(get().code!, questions)),
 
   removeCustomQuestion: (id) => sendSafely(set, () => gameSocket.removeCustomQuestion(get().code!, id)),
 

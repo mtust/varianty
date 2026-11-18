@@ -29,8 +29,11 @@ public class RoomResources {
 			@RequestParam(defaultValue = "false") boolean hostless,
 			@RequestParam(defaultValue = Question.CATEGORY_FACTS) String category,
 			@RequestParam(defaultValue = Question.LANGUAGE_UK) String language,
-			@RequestParam(required = false) Integer rounds) {
-		return new RoomCreatedResponse(roomService.createRoom(host, hostless, category, language, rounds));
+			@RequestParam(required = false) Integer rounds,
+			@RequestParam(required = false) Integer answerSeconds,
+			@RequestParam(defaultValue = "false") boolean manualTimer) {
+		return new RoomCreatedResponse(
+				roomService.createRoom(host, hostless, category, language, rounds, answerSeconds, manualTimer));
 	}
 
 	@GetMapping("/{code}/exists")
