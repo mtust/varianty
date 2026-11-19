@@ -221,6 +221,10 @@ class GameSocketService {
     this.send({ destination: `/app/room/${code}/new-game`, body: JSON.stringify(settings) });
   }
 
+  updateSettings(code: string, settings: { answerSeconds?: number; manualTimer?: boolean }) {
+    this.send({ destination: `/app/room/${code}/settings`, body: JSON.stringify(settings) });
+  }
+
   endAnswering(code: string) {
     this.send({ destination: `/app/room/${code}/end-answering`, body: '{}' });
   }

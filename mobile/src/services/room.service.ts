@@ -15,12 +15,10 @@ export const roomService = {
     hostless = false,
     category: QuestionCategory = 'facts',
     language: Language = 'uk',
-    rounds: number = DEFAULT_ROUNDS,
-    answerSeconds: number = DEFAULT_ANSWER_SECONDS,
-    manualTimer = false
+    rounds: number = DEFAULT_ROUNDS
   ): Promise<{ code: string }> {
     const { data } = await apiClient.post<{ code: string }>('/api/rooms', null, {
-      params: { hostless, category, language, rounds, answerSeconds, manualTimer },
+      params: { hostless, category, language, rounds },
     });
     return data;
   },

@@ -303,6 +303,28 @@ public class RoomService {
 		}
 	}
 
+	/**
+	 * The host changes the timer settings in the lobby, before the game starts: how long players
+	 * have to answer and, in rooms with a host, whether the host ends answering and voting by hand.
+	 */
+	public RoomSnapshot updateSettings(String code, String hostId, Integer answerSeconds, Boolean manualTimer) {
+		GameRoom room = getRoomOrThrow(code);
+		synchronized (room) {
+			requireHost(room, hostId);
+			if (room.status != RoomStatus.LOBBY) {
+				throw new ApiException(HttpStatus.CONFLICT, "Налаштування можна змінити лише до початку гри");
+			}
+			if (answerSeconds != null) {
+				requireAnswerSecondsInRange(answerSeconds);
+				room.answerSeconds = answerSeconds;
+			}
+			if (manualTimer != null) {
+				room.manualTimer = manualTimer && !room.hostless;
+			}
+			return snapshot(room);
+		}
+	}
+
 	/** The host stops collecting answers and opens voting, without waiting for everyone or the timer. */
 	public AnswerResult endAnswering(String code, String hostId) {
 		GameRoom room = getRoomOrThrow(code);

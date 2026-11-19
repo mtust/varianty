@@ -1,21 +1,13 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Button, HelperText, IconButton, SegmentedButtons, Text } from 'react-native-paper';
 
-import { AnswerTimePicker, ManualTimerCheckbox } from '@/components/AnswerTimePicker';
 import { LanguageSwitch } from '@/components/LanguageSwitch';
 import { useLanguageStore, useT } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
 import { authService } from '@/services/auth.service';
-import {
-  DEFAULT_ANSWER_SECONDS,
-  DEFAULT_ROUNDS,
-  MAX_ROUNDS,
-  MIN_ROUNDS,
-  QuestionCategory,
-  roomService,
-} from '@/services/room.service';
+import { DEFAULT_ROUNDS, MAX_ROUNDS, MIN_ROUNDS, QuestionCategory, roomService } from '@/services/room.service';
 import { useAuthStore } from '@/stores/authStore';
 import { theme } from '@/theme/theme';
 import { useShallow } from 'zustand/react/shallow';
@@ -34,8 +26,6 @@ export function HomeScreen({ navigation }: Props) {
   );
   const [category, setCategory] = useState<QuestionCategory>('facts');
   const [rounds, setRounds] = useState(DEFAULT_ROUNDS);
-  const [answerSeconds, setAnswerSeconds] = useState(DEFAULT_ANSWER_SECONDS);
-  const [manualTimer, setManualTimer] = useState(false);
   const [creating, setCreating] = useState<'host' | 'hostless' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -63,7 +53,7 @@ export function HomeScreen({ navigation }: Props) {
     setCreating(hostless ? 'hostless' : 'host');
     setError(null);
     try {
-      const { code } = await roomService.createRoom(hostless, category, language, rounds, answerSeconds, manualTimer);
+      const { code } = await roomService.createRoom(hostless, category, language, rounds);
       navigation.navigate('Lobby', { code, isHost: true });
     } catch {
       setError(t('home.createFailed'));
@@ -73,7 +63,7 @@ export function HomeScreen({ navigation }: Props) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <LanguageSwitch />
       <Text variant="titleLarge" style={styles.greeting}>
         {t('home.greeting', { name: displayName ?? '' })}
@@ -108,10 +98,6 @@ export function HomeScreen({ navigation }: Props) {
           onPress={() => setRounds((r) => Math.min(MAX_ROUNDS, r + 1))}
         />
       </View>
-
-      <Text style={styles.answerTimeLabel}>{t('home.answerTime')}</Text>
-      <AnswerTimePicker value={answerSeconds} onChange={setAnswerSeconds} style={styles.button} />
-      <ManualTimerCheckbox checked={manualTimer} onChange={setManualTimer} label={t('home.manualTimer')} />
 
       <Button
         mode="contained"
@@ -157,16 +143,15 @@ export function HomeScreen({ navigation }: Props) {
           {t('home.deleteAccount')}
         </Button>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 24, justifyContent: 'center' },
+  container: { flex: 1, padding: 24, justifyContent: 'center' },
   greeting: { textAlign: 'center', marginBottom: 32 },
   categoryLabel: { textAlign: 'center', opacity: 0.7, marginBottom: 8 },
   roundsLabel: { textAlign: 'center', opacity: 0.7, marginTop: 16 },
-  answerTimeLabel: { textAlign: 'center', opacity: 0.7, marginTop: 8 },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   roundsValue: { minWidth: 40, textAlign: 'center' },
   button: { marginTop: 12 },

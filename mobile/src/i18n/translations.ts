@@ -37,7 +37,6 @@ export const uk = {
   'home.createHosted': 'Створити кімнату (я ведучий)',
   'home.createHostless': 'Створити кімнату без ведучого',
   'home.answerTime': 'Час на відповідь',
-  'home.manualTimer': 'Кімната з ведучим без таймера: ведучий сам починає й закінчує голосування',
   'home.joinByCode': 'Приєднатися за кодом',
   'home.history': 'Моя історія ігор',
   'home.signOut': 'Вийти',
@@ -132,6 +131,8 @@ export const uk = {
 
   'newGame.title': 'Зіграти ще раз у цій кімнаті',
   'newGame.manualTimer': 'Без таймера: я сам починаю й закінчую голосування',
+  'lobby.answerTimeInfo': 'Час на відповідь: {seconds} с',
+  'lobby.manualTimerInfo': 'Без таймера: ведучий сам починає й закінчує голосування',
   'newGame.keepScores': 'Нова гра, рахунок продовжується',
   'newGame.resetScores': 'Нова гра з нуля',
   'newGame.waiting': 'Можливо, {who} почне нову гру в цій кімнаті. Зачекайте або поверніться на головну',
@@ -233,7 +234,6 @@ export const en: Record<TranslationKey, string> = {
   'home.createHosted': "Create a room (I'm the host)",
   'home.createHostless': 'Create a room without a host',
   'home.answerTime': 'Time to answer',
-  'home.manualTimer': 'Room with a host, no timer: the host starts and ends voting',
   'home.joinByCode': 'Join with a code',
   'home.history': 'My game history',
   'home.signOut': 'Sign out',
@@ -328,6 +328,8 @@ export const en: Record<TranslationKey, string> = {
 
   'newGame.title': 'Play again in this room',
   'newGame.manualTimer': 'No timer: I start and end voting myself',
+  'lobby.answerTimeInfo': 'Time to answer: {seconds} s',
+  'lobby.manualTimerInfo': 'No timer: the host starts and ends voting',
   'newGame.keepScores': 'New game, keep the score',
   'newGame.resetScores': 'New game from zero',
   'newGame.waiting': '{who} may start a new game in this room. Wait here or go back home',

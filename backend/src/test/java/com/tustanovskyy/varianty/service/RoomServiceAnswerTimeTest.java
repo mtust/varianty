@@ -117,4 +117,31 @@ class RoomServiceAnswerTimeTest {
 		assertThat(started.secondsRemaining()).isPositive();
 		assertThatThrownBy(() -> service.endAnswering(hostless, HOST.playerId())).isInstanceOf(ApiException.class);
 	}
+
+	@Test
+	void hostChangesTimerSettingsInTheLobby() {
+		String code = service.createRoom(HOST, false, Question.CATEGORY_FACTS, Question.LANGUAGE_UK, 5);
+		service.join(code, ANNA);
+		service.join(code, BOHDAN);
+		RoomSnapshot lobby = service.updateSettings(code, HOST.playerId(), 60, null);
+		assertThat(lobby.answerSeconds()).isEqualTo(60);
+		assertThat(lobby.manualTimer()).isFalse();
+		assertThat(service.updateSettings(code, HOST.playerId(), null, true).manualTimer()).isTrue();
+		assertThatThrownBy(() -> service.updateSettings(code, ANNA.playerId(), 30, null)).isInstanceOf(ApiException.class);
+		assertThatThrownBy(() -> service.updateSettings(code, HOST.playerId(), 5, null)).isInstanceOf(ApiException.class);
+
+		service.startGame(code, HOST.playerId());
+		RoomSnapshot answering = service.submitHostTrap(code, HOST.playerId(), "trap");
+		assertThat(answering.manualTimer()).isTrue();
+		assertThat(answering.answerSeconds()).isEqualTo(60);
+		assertThatThrownBy(() -> service.updateSettings(code, HOST.playerId(), 30, null)).isInstanceOf(ApiException.class);
+	}
+
+	@Test
+	void hostlessRoomIgnoresManualTimer() {
+		String code = service.createRoom(HOST, true, Question.CATEGORY_FACTS, Question.LANGUAGE_UK, 5);
+		RoomSnapshot lobby = service.updateSettings(code, HOST.playerId(), 90, true);
+		assertThat(lobby.answerSeconds()).isEqualTo(90);
+		assertThat(lobby.manualTimer()).isFalse();
+	}
 }

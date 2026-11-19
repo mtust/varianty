@@ -27,6 +27,8 @@ interface GameState {
   submitAnswer: (text: string) => void;
   submitVote: (optionId: string) => void;
   nextRound: () => void;
+  /** Host, in the lobby: change the answer time or turn the timer off. */
+  updateSettings: (settings: { answerSeconds?: number; manualTimer?: boolean }) => void;
   /** Host: stop collecting answers and open voting now. */
   endAnswering: () => void;
   /** Host: close voting and show the round's results now. */
@@ -120,6 +122,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   nextRound: () => sendSafely(set, () => gameSocket.nextRound(get().code!)),
+
+  updateSettings: (settings) => sendSafely(set, () => gameSocket.updateSettings(get().code!, settings)),
 
   endAnswering: () => sendSafely(set, () => gameSocket.endAnswering(get().code!)),
 

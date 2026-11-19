@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Icon, IconButton, Snackbar, Text } from 'react-native-paper';
 
+import { AnswerTimePicker, ManualTimerCheckbox } from '@/components/AnswerTimePicker';
 import { confirmKick, showKickedAlert } from '@/components/confirmKick';
 
 import { useT } from '@/i18n';
@@ -20,8 +21,9 @@ export function LobbyScreen({ route, navigation }: Props) {
   const { code, isHost } = route.params;
   const token = useAuthStore((state) => state.token);
   const playerId = useAuthStore((state) => state.playerId);
-  const { snapshot, error, kicked, clearError, connectAndJoin, leaveRoom, startGame, kickPlayer } = useGameStore(
+  const { snapshot, error, kicked, clearError, connectAndJoin, leaveRoom, startGame, kickPlayer, updateSettings } = useGameStore(
     useShallow((state) => ({
+      updateSettings: state.updateSettings,
       snapshot: state.snapshot,
       error: state.error,
       kicked: state.kicked,
@@ -138,6 +140,31 @@ export function LobbyScreen({ route, navigation }: Props) {
         )}
       />
 
+      {/* Timer settings: the host changes them here before the start; older servers don't send them. */}
+      {snapshot.answerSeconds !== undefined &&
+        (isHost ? (
+          <View style={styles.settings}>
+            <Text style={styles.settingsLabel}>{t('home.answerTime')}</Text>
+            <AnswerTimePicker
+              value={snapshot.answerSeconds}
+              onChange={(answerSeconds) => updateSettings({ answerSeconds })}
+            />
+            {!snapshot.hostless && (
+              <ManualTimerCheckbox
+                checked={!!snapshot.manualTimer}
+                onChange={(manualTimer) => updateSettings({ manualTimer })}
+                label={t('newGame.manualTimer')}
+              />
+            )}
+          </View>
+        ) : (
+          <Text style={styles.customInfo}>
+            {snapshot.manualTimer
+              ? t('lobby.manualTimerInfo')
+              : t('lobby.answerTimeInfo', { seconds: snapshot.answerSeconds })}
+          </Text>
+        ))}
+
       {/* Older servers don't send the count; the button only shows once they support it. */}
       {isHost && !snapshot.hostless && snapshot.customQuestionCount !== undefined && (
         <Button
@@ -196,6 +223,8 @@ const styles = StyleSheet.create({
   copyIcon: { marginBottom: 4, marginLeft: 4 },
   hostLabel: { textAlign: 'center', opacity: 0.7, marginBottom: 24 },
   list: { flex: 1 },
+  settings: { marginTop: 8, marginBottom: 4 },
+  settingsLabel: { textAlign: 'center', opacity: 0.7, marginBottom: 8 },
   playerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 },
   playerMeta: { flexDirection: 'row', alignItems: 'center' },
   removeButton: { margin: 0 },

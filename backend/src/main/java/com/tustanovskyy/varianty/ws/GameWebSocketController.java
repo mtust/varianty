@@ -8,6 +8,7 @@ import com.tustanovskyy.varianty.domain.dto.room.KickPayload;
 import com.tustanovskyy.varianty.domain.dto.room.KickedDto;
 import com.tustanovskyy.varianty.domain.dto.room.NewGamePayload;
 import com.tustanovskyy.varianty.domain.dto.room.RemoveCustomQuestionPayload;
+import com.tustanovskyy.varianty.domain.dto.room.RoomSettingsPayload;
 import com.tustanovskyy.varianty.domain.dto.room.RoomSnapshot;
 import com.tustanovskyy.varianty.domain.dto.room.TrapPayload;
 import com.tustanovskyy.varianty.domain.dto.room.VotePayload;
@@ -87,6 +88,11 @@ public class GameWebSocketController {
 		if (result.roundResult() != null) {
 			messagingTemplate.convertAndSend("/topic/room/" + code + "/results", result.roundResult());
 		}
+	}
+
+	@MessageMapping("/room/{code}/settings")
+	public void updateSettings(@DestinationVariable String code, StompPrincipal principal, @Payload RoomSettingsPayload payload) {
+		broadcast(code, roomService.updateSettings(code, principal.playerId(), payload.answerSeconds(), payload.manualTimer()));
 	}
 
 	@MessageMapping("/room/{code}/end-answering")
